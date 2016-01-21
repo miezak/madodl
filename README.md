@@ -1,0 +1,2 @@
+# madodl
+madokami manga fetcher
