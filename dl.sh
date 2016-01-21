@@ -5,10 +5,11 @@ usage ()
 	cat <<EOF >&2
 `basename $0` - madokami manga fetcher
 
-usage: dl.sh [-dhv] <manga name> ...
+usage: dl.sh [-dhv] [-p pref val] <manga name> ...
 
 options:
  -d  turn on debugging
+ -p  add a preference filter
  -v  verbose output
  -h  this output
 EOF
@@ -44,6 +45,14 @@ die ()
 	exit 1
 }
 
+match_all ()
+# $1 - list to grep
+{
+	echo "${1}" | grep -Ei '(\(|<|\[|\{)complete(\)|>|\]|\})'
+
+	return $?
+}
+
 match_vol ()
 # $1 - list to grep
 # $2 - vol # to match
@@ -52,7 +61,7 @@ match_vol ()
 	# sec fmt chk: name -? v -? c -? ([]|<>|())tag (+ w/e).ext$
 	echo "${1}" | grep -E                                 \
 	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?\(?v0*\)?${2}" || \
-	echo "${dls}" | grep -E                               \
+	echo "${1}" | grep -E                                 \
 	"\(?v0*${2}\)?(\s*-?ch?\s*[0-9,-]+)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
 
 	return $(($? ? 1 : 0))
@@ -61,7 +70,7 @@ match_vol ()
 filter_match ()
 # $1 - file ls to filter
 # $2 - vol/ch we are checking
-# return 0 on match, 1 on no match, and 2 on empty list
+# return 0 on match, 1 on no match, and 2 on initial empty list
 {
 	local pfx='filter_match():'
 	[ -z "${1}" ] && return 2
@@ -77,7 +86,6 @@ filter_match ()
 			#ver "T!!!\n-----\n${fls}\n-----"
 			fls=`echo "${fls}" | grep -Ei "\.${prefln#* }$"` \
 			|| { ver "${pfx} couldn't find any ${prefln#* }'s for $2" ; return 1 ;}
-			# TODO: ^^ specify for what vol/ch
 		;;
 		*) break #echo "${1}" | sed 1q || return 1
 		;;
@@ -89,10 +97,42 @@ filter_match ()
 	return ${caseret} # XXX chk if OK
 }
 
+filter_match_rev ()
+# $1 - file ls to filter
+# $2 - vol/ch we are checking
+# return 0 if remaining, 1 not remaining, and 2 on initial empty list
+{
+	local pfx='filter_match_rev():'
+	[ -z "${1}" ] && return 2
+	# for now we will always pick the first line
+	local fls="${1}"
+	echo "${PREF}" | while read prefln; do
+	case "${prefln}" in
+		tag*) # enclosed in one of: () <> [] {}
+			fls=`echo "${fls}" | grep -Ev "(\(|<|\[|\{)${prefln#* }(\)|>|\]|\})"`
+			ver "${pfx} filtered out any \`${prefln#* }' tags for $2"
+		;;
+		type*) # one of: zip rar cbz cbr
+			#ver "T!!!\n-----\n${fls}\n-----"
+			fls=`echo "${fls}" | grep -Evi "\.${prefln#* }$"`
+			ver "${pfx} filtered out any ${prefln#* }'s for $2"
+		;;
+		*) break #echo "${1}" | sed 1q || return 1
+		;;
+	esac
+	done
+
+	[ -z "${fls}" ] && return 1
+
+	echo "${fls}"
+
+	return ${caseret} # XXX chk if OK
+}
+
 parse_req_files ()
 {
 	if [ "$1" = 'all' ]; then
-		doall=1 ; export doall
+		echo all
 		return 0
 	fi
 	echo "${1}" "${2}" | \
@@ -207,19 +247,15 @@ use_curl ()
 	curl_http ()
 	# $1 - file(s) to dl
 	{
-		case `echo "${1}" | wc -l | tr -d '[:space:]'` \
-		in
-		1) ver "attempting download of ${1} ..."         ;;
-		*) ver "attempting dl list:\n-----\n${1}\n-----" ;;
-		esac
-		ver "would curl https://manga.madokami.com/${dir}/${1}" # -o ${PREFIX}/${1}"
-		#echo "${1}" | while read f; do
+		ver "attempting download of:\n-----\n${1}\n-----"
+		echo "${1}" | while read f; do
+		ver "would curl https://manga.madokami.com/${dir}/${f}" # -o ${PREFIX}/${1}"
 		#	curl -sL                                 \
 		#	-u "${user}:${pass}"                     \
 		#	"https://manga.madokami.com/${dir}/${f}" \
 		#	-o "${PREFIX}/${f}" && \
 		#	cdl="$(printf "%s\n%s" "${cdl}" "${f}")"
-		#done
+		done
 
 		return $?
 	}
@@ -257,7 +293,24 @@ use_curl ()
 	parse_req_files "$2" "$3" | \
 	while read req; do
 		dbg "\$req - ${req}"
-		if [ "${req%% *}" = 'v' ]; then
+		if [ "${req}" = 'all' ]; then
+			dbg 'all match'
+			# first look for complete collection
+			compar=`match_all "${dls}"`
+			case $? in
+			0)
+				ver 'found a complete collection'
+				filtm=`filter_match_rev "${compar}" 'complete archives'` || break
+			;;
+			1)
+				ver 'No complete archive found. Filtering whole listing...'
+				filtm=`filter_match_rev "${dls}" 'all archives'` || break
+			;;
+			2) break ;;
+			esac
+			curl_http "${filtm}"
+			break
+		elif [ "${req%% *}" = 'v' ]; then
 			dbg 'v match'
 			local curnum=`echo ${req} | cut -f2 -d' '`
 			dbg "\$curnum - ${curnum}"
@@ -391,6 +444,7 @@ add_pref ()
 # TODO:
 # - better handling for multiple search matches
 # - add checks for multi-part vols e.g. vol1 (1 of 3)
+# - add caching
 # - make the code less shitty
 
 [ $# -eq 0 ] && usage
@@ -433,8 +487,11 @@ do
 		add_pref "${2}" "${3}"
 		shift 3
 	;;
-	*) use_curl "$1" "$2" "$3"
-	   test -n "$3" ; shift $(($? ? 2 : 3))
+	*)
+		# always cut out empty lines
+		PREF=`echo "${PREF}" | grep -v '^[[:space:]]*$'`
+		use_curl "$1" "$2" "$3"
+		test -n "$3" ; shift $(($? ? 2 : 3))
 	;;
 	esac
 done
