@@ -61,15 +61,16 @@ match_vol ()
 filter_match ()
 # $1 - file ls to filter
 # $2 - vol/ch we are checking
+# return 0 on match, 1 on no match, and 2 on empty list
 {
 	local pfx='filter_match():'
-	[ -z "${1}" ] && return 1
+	[ -z "${1}" ] && return 2
 	# for now we will always pick the first line
 	local fls="${1}"
 	echo "${PREF}" | while read prefln; do
 	case "${prefln}" in
-		tag*) # one of: () <> [] {}
-			fls=`echo "${fls}" | grep -E "(\(|<|\[|\{)${prefln#* }(\)|>|\|\}])"` \
+		tag*) # enclosed in one of: () <> [] {}
+			fls=`echo "${fls}" | grep -E "(\(|<|\[|\{)${prefln#* }(\)|>|\]|\})"` \
 			|| { ver "${pfx} couldn't find tag: ${prefln#* } for $2" ; return 1 ;}
 		;;
 		type*) # one of: zip rar cbz cbr
@@ -282,21 +283,23 @@ use_curl ()
 						local curl_oe_ls=""
 						while :; do
 							: $((lastn += 1))
-							nxm=`match_vol "${dls}" ${lastn}`       && \
+							nxm=`match_vol "${dls}" ${lastn}`
 							fil=`filter_match "${nxm}" vol${lastn}` && \
 							{ [ -z "${curl_oe_ls}" ] &&     \
 							  curl_oe_ls="${fil}"    ||     \
 							  curl_oe_ls="$(printf "%s\n%s" \
 							  "${curl_oe_ls}" "${fil}")" ;}
 							case $? in
-							1) ver
-							  "no filtered match for vol${lastn}, cont. check for"
-							  "later vols..." ; continue
+							1) ver                                             \
+							  "no filtered match for vol${lastn}, cont. check" \
+							  "for later vols..." ; continue
 							;;
-							2)
+							2) : $((lastn -= 1))
+							   ver "last match - vol${lastn}" ; break
+							;;
 							esac
 						done
-						dbg "curling oe-range, v${lastn}-"
+						dbg "curling oe-range"
 						curl_http "${curl_oe_ls}"
 					else
 						dbg 'in closed range'
@@ -324,6 +327,67 @@ use_curl ()
 	done
 }
 
+chk_pref ()
+# [$1] - preference to check against
+# [$2] - value of $1 preference
+{
+	local pfx='chk_pref():'
+	echo "${PREF}" |                                   \
+	awk -v pfx="${pfx}" -v add="${1}" -v addval="${2}" \
+	'
+		BEGIN {
+			t_seen = ret = bpi = btv = 0
+			valid_pref  = "^(t(ype|ag))$"
+			valid_t_val = "^(zip|rar|cb(z|r))$"
+			if (add) {
+				if (add !~ valid_pref)
+					badp[bpi++] = add
+				if (add == "type" && addval !~ valid_t_val)
+					badtval[btv++] = addval
+			}
+		}
+		$1 ~ /^[[:space:]]*$/ { next }
+		$1 == "type" {
+			t_seen++
+			if ($2 !~ valid_t_val) badtval[btv++] = $0
+		}
+		$1 !~ valid_pref { badp[bpi++] = $1 }
+		END {
+			if (t_seen && add == "type") {
+				print pfx, "ERROR: type already defined"
+				exit(1)
+			} else if (t_seen > 1) {
+				print pfx, "ERROR: type defined multiple times"
+				exit(1)
+			} else if (length(badp)) {
+				print pfx, "ERROR: detected bad pref identifier(s):"
+				for (p in badp)
+					print "                   -", badp[p]
+				exit(1)
+			} else if (length(badtval)) {
+				print pfx, "ERROR: detected bad type value:"
+				for (pv in badtval)
+					print "                                     -", badtval[pv]
+				exit(1)
+			}
+			exit(0)
+		}
+	' || die
+
+	return 0
+}
+
+add_pref ()
+# $1, $2 - preference to add
+{
+	chk_pref "${1}" "${2}"
+	[ -z "${PREF}" ] && PREF="${1} ${2}" \
+	|| PREF=`printf "%s\n%s\n" "${PREF}" "${1} ${2}"`
+
+	return 0
+}
+
+
 # TODO:
 # - better handling for multiple search matches
 # - add checks for multi-part vols e.g. vol1 (1 of 3)
@@ -344,10 +408,14 @@ FTPS_PORT='24430'
 # type <zip|rar|cbz|cbr>
 # _must_ be space between ident and val
 #
-PREF='type zip' # FIXME: tag not working
+PREF=\
+'
+'
 : ${PREFIX:=/tmp}
 
 trap 'echo;die "caught signal"' SIGINT SIGKILL SIGABRT
+
+chk_pref
 
 while [ -n "$1" ]
 do
@@ -358,6 +426,12 @@ do
 		[ -z "${1##*[h]*}" ] && usage
 		[ -z "${1##*[v]*}" ] && v=1
 		shift
+	;;
+	-p)
+		test -z "${2}" || test -z "${3}" && \
+		die '-p needs 2 arguments'
+		add_pref "${2}" "${3}"
+		shift 3
 	;;
 	*) use_curl "$1" "$2" "$3"
 	   test -n "$3" ; shift $(($? ? 2 : 3))
