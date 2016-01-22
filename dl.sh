@@ -74,27 +74,87 @@ filter_match ()
 {
 	local pfx='filter_match():'
 	[ -z "${1}" ] && return 2
-	# for now we will always pick the first line
-	local fls="${1}"
-	echo "${PREF}" | while read prefln; do
-	case "${prefln}" in
-		tag*) # enclosed in one of: () <> [] {}
-			fls=`echo "${fls}" | grep -E "(\(|<|\[|\{)${prefln#* }(\)|>|\]|\})"` \
-			|| { ver "${pfx} couldn't find tag: ${prefln#* } for $2" ; return 1 ;}
-		;;
-		type*) # one of: zip rar cbz cbr
-			#ver "T!!!\n-----\n${fls}\n-----"
-			fls=`echo "${fls}" | grep -Ei "\.${prefln#* }$"` \
-			|| { ver "${pfx} couldn't find any ${prefln#* }'s for $2" ; return 1 ;}
-		;;
-		*) break #echo "${1}" | sed 1q || return 1
-		;;
-	esac
-	done
-	local caseret=$?
-	echo "${fls}" | sed 1q
 
-	return ${caseret} # XXX chk if OK
+	# for now we will always pick the first line
+
+	local fls="${1}"
+	export fls
+
+	echo "${PREF}" |   \
+	awk -v d="${d}"    \
+		-v what="${2}" \
+	'
+		BEGIN {
+			ret = 0 ; first = 1 ; fls = ENVIRON["fls"]
+			if (d) pfx = "dbg: filter_match():"
+		}
+		function dbg(msg) { print "dbg: filter_match(): "msg >"/dev/stderr" }
+		function filter() {
+			if ($1 == "tag") {
+				IGNORECASE = 1 # XXX may not work with older awks
+				ret = match(fls, "(\\(|<|\\[|\\{)"$2"(\\)|>|\\]|\\})")
+				if (!ret) {
+					if (what == "all archives") {
+						dbg("couldn`t find tag: "$2" for "fls)
+						return 1
+					} else {
+						dbg("couldn`t find tag: "$2" for "what)
+						exit(1)
+					}
+				}
+			} else if ($1 == "type") {
+				IGNORECASE = 1
+				ret = match(fls, "\\."$2"$")
+				if (!ret) {
+					if (what == "all archives") {
+						dbg("couldn`t match type "$2" for "fls)
+						return 1
+					} else {
+						dbg("couldn`t find any "$2"`s for "what)
+						exit(1)
+					}
+				}
+			}
+			return 0
+		}
+		{
+		if (what == "all archives") {
+			if (first) {
+				split(fls, flsarr, /\n/)
+				fltidx = 0
+				first = 0
+			}
+			idx = 1
+			while ((fls = flsarr[idx++]))
+				if (!filter())
+					fltarr[fltidx++] = fls
+		} else { filter() }
+		}
+		END {
+			if (what == "all archives")
+				for (i=0;i<length(fltarr);i++)
+					print fltarr[i]
+			else {
+				if (ret) {
+					split(fls, flsarr, /\n/)
+					t=0
+					for(i=0;i<length(flsarr);i++)
+						for(j=0;j<length(flsarr[i]);j++)
+							if ((++t) == RSTART) {
+								# found the line
+								print flsarr[i]
+								break
+							}
+				}
+				else {
+					match(fls, /^[^\n]*/) # first line
+					print substr(fls, RSTART, RLENGTH)
+				}
+			}
+		}
+	'
+
+	return $?
 }
 
 filter_match_rev ()
@@ -109,7 +169,7 @@ filter_match_rev ()
 	echo "${PREF}" | while read prefln; do
 	case "${prefln}" in
 		tag*) # enclosed in one of: () <> [] {}
-			fls=`echo "${fls}" | grep -Ev "(\(|<|\[|\{)${prefln#* }(\)|>|\]|\})"`
+			fls=`echo "${fls}" | grep -Evi "(\(|<|\[|\{)${prefln#* }(\)|>|\]|\})"`
 			ver "${pfx} filtered out any \`${prefln#* }' tags for $2"
 		;;
 		type*) # one of: zip rar cbz cbr
@@ -117,14 +177,12 @@ filter_match_rev ()
 			fls=`echo "${fls}" | grep -Evi "\.${prefln#* }$"`
 			ver "${pfx} filtered out any ${prefln#* }'s for $2"
 		;;
-		*) break #echo "${1}" | sed 1q || return 1
+		*) echo "${fls}" ; break
 		;;
 	esac
 	done
-
-	[ -z "${fls}" ] && return 1
-
-	echo "${fls}"
+	local caseret=$?
+	#[ -z "${fls}" ] && return 1
 
 	return ${caseret} # XXX chk if OK
 }
@@ -132,7 +190,7 @@ filter_match_rev ()
 parse_req_files ()
 {
 	if [ "$1" = 'all' ]; then
-		echo all
+		echo 'all'
 		return 0
 	fi
 	echo "${1}" "${2}" | \
@@ -257,7 +315,11 @@ use_curl ()
 		#	cdl="$(printf "%s\n%s" "${cdl}" "${f}")"
 		done
 
-		return $?
+		if [ $? -ne 0 ]; then
+			die "curl_http(): curl failed"
+		fi
+
+		return 0
 	}
 	local dir=$(                                          \
 	curl -sL "https://manga.madokami.com/search?q=${1}" | \
@@ -300,11 +362,11 @@ use_curl ()
 			case $? in
 			0)
 				ver 'found a complete collection'
-				filtm=`filter_match_rev "${compar}" 'complete archives'` || break
+				filtm=`filter_match "${compar}" 'complete archives'` || break
 			;;
 			1)
 				ver 'No complete archive found. Filtering whole listing...'
-				filtm=`filter_match_rev "${dls}" 'all archives'` || break
+				filtm=`filter_match "${dls}" 'all archives'` || break
 			;;
 			2) break ;;
 			esac
@@ -318,9 +380,8 @@ use_curl ()
 			filtm=`filter_match "${match}" vol${curnum}` && \
 			dbg "match:\n-----\n${match}\n-----"         && \
 			dbg "filtm:\n-----\n${filtm}\n-----"         && \
-			{ curl_http "${filtm}" \
-			  || die "failed to download ${filtm}" ;} || \
-			ver "no match for vol${curnum}, continuing check on later vols..."
+			curl_http "${filtm}"                         || \
+			ver "no filtered match for vol${curnum}, cont. check on later vols..."
 			local curf=2 lastn nxm
 			while :; do
 				: $((curf += 1))
@@ -348,10 +409,12 @@ use_curl ()
 							  "for later vols..." ; continue
 							;;
 							2) : $((lastn -= 1))
-							   ver "last match - vol${lastn}" ; break
+							   ver "last match - vol${lastn}"
+							   break
 							;;
 							esac
 						done
+						[ -z "${curl_oe_ls}" ] && break
 						dbg "curling oe-range"
 						curl_http "${curl_oe_ls}"
 					else
@@ -465,6 +528,7 @@ FTPS_PORT='24430'
 PREF=\
 '
 '
+export PREF
 : ${PREFIX:=/tmp}
 
 trap 'echo;die "caught signal"' SIGINT SIGKILL SIGABRT
