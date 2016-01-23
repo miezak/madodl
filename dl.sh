@@ -121,7 +121,7 @@ filter_match ()
 			split(fls, flsarr, /\n/)
 			if (d) pfx = "dbg: filter_match():"
 		}
-		function dbg(msg) { print "dbg: filter_match(): "msg >"/dev/stderr" }
+		function dbg(msg) { if (d) print "dbg: filter_match(): "msg >"/dev/stderr" }
 		function filter() {
 			if ($1 == "tag") {
 				IGNORECASE = 1 # XXX may not work with older awks
@@ -168,21 +168,19 @@ parse_req_files ()
 	echo "${1}" "${2}" | \
 	awk -v d=${d} \
 	'
-		BEGIN { pfx="awk: parse_req_files():" }
+		function dbg(msg) { if (d) print "dbg: "pfx" "msg >"/dev/stderr" }
+		function die(msg) { print pfx" die(): "msg ; exit(1) }
+		BEGIN { pfx="parse_req_files():" }
 		{
-			if (NF > 2) {
-				print pfx, "too many args" >"/dev/stderr"
-				exit(1)
-			}
+			if (NF > 2)
+				die("too many args")
 			for (nftmp=1; nftmp <= NF; nftmp++) {
 				# before doing anything, check for invalid
 				# chars, then check for invalid use of valid chars
 				if ($nftmp !~ /^[volch0-9,-]+$/) {
-					print pfx, "bad field", "`"$nftmp"`" >"/dev/stderr"
-					exit(1)
+					die("bad field `"$nftmp"`")
 				} else if ($nftmp !~ /^(v(ol)?|ch?)[0-9-]/) {
-					print pfx, "bad field", "`"$nftmp"`" >"/dev/stderr"
-					exit(1)
+					die("bad field `"$nftmp"`")
 				}
 				if (length(num)) {
 					for (i in num)
@@ -230,34 +228,30 @@ parse_req_files ()
 			}
 			sum = num[1]
 			for (i = 2; i <= length(num); i++) {
-				if (d) { print dpfx, delim[1], "sum -", sum >"/dev/stderr" }
-				if (num[i] < sum) {
-					print pfx, delim[1], "must be in ascending order" >"/dev/stderr"
-					exit(1)
-				} sum += (delim[i] == "-" ? num[i] : 1)
+				dbg(delim[1]" sum - "sum)
+				if (num[i] < sum)
+					die(delim[1]" must be in ascending order")
+				sum += (delim[i] == "-" ? num[i] : 1)
 			}
 			sum = numA[1]
 			for (i = 2; i <= length(numA); i++) {
-				if (d) { print dpfx, delimA[1], "sum -", sum >"/dev/stderr" }
-				if (numA[i] < sum) {
-					print pfx, delimA[1], "must be in ascending order" >"/dev/stderr"
-					exit(1)
-				} sum += (delimA[i] == "-" ? numA[i] : 1)
+				dbg(delimA[1]" sum - "sum)
+				if (numA[i] < sum)
+					die(delimA[1]" must be in ascending order")
+				sum += (delimA[i] == "-" ? numA[i] : 1)
 			}
 			for (i = 1; i <= length(delim); i++) {
 				if (i == 1) {
 					delim[1] == "v" ? v=1 : c=1
 				} else if (delim[i] == "," && num[i] !~ /[0-9]+/) {
-					print pfx, "extraneous comma in", delim[1] >"/dev/stderr"
-					exit(1)
+					die("extraneous comma in "delim[1])
 				}
 			}
 			for (i = 1; i <= length(delimA); i++) {
 				if (i == 1) {
 					if (v) { c=1 } else v=1
 				} else if (delimA[i] == "," && numA[i] !~ /[0-9]+/) {
-					print pfx, "extraneous comma in", delimA[1] >"/dev/stderr"
-					exit(1)
+					die("extraneous comma in "delimA[1])
 				}
 			}
 			for (i = 1; i <= length(delim); i++)
