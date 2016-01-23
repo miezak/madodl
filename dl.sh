@@ -56,15 +56,47 @@ match_all ()
 match_vol ()
 # $1 - list to grep
 # $2 - vol # to match
+# ret - 0 on match, 1 on no match
 {
-	# first fmt chk: ^([]|<>|())tag -? name -? (())v
-	# sec fmt chk: name -? v -? c -? ([]|<>|())tag (+ w/e).ext$
-	echo "${1}" | grep -E                                 \
-	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?\(?v0*\)?${2}" || \
-	echo "${1}" | grep -E                                 \
-	"\(?v0*${2}\)?(\s*-?ch?\s*[0-9,-]+)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
+	# first fmt chk: ^([]|<>|())tag -? name -? (())v$2
+	# sec fmt chk: name -? v$2 -? c -? ([]|<>|())tag (+ w/e).ext$
+	echo "${1}" | grep -Ei                                \
+	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?\(?v(ol(ume)?)?0*\)?${2}" || \
+	echo "${1}" | grep -Ei                                \
+	"\(?v(ol(ume)?)?0*${2}\)?(\s*-?c(h(apter)?)?\s*[0-9,-]+)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
 
-	return $(($? ? 1 : 0))
+	return $?
+}
+
+match_vol_range ()
+# $1 - list to grep
+# $2 - first vol in range
+# $3 - last vol in range
+# ret - 0 on match, 1 on no match
+{
+	# first fmt chk: ^([]|<>|())tag -? name -? (())v$2-$3
+	# sec fmt chk: name -? v$2-$3 -? c -? ([]|<>|())tag (+ w/e).ext$
+	echo "${1}" | grep -Ei                                \
+	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?\(?v(ol(ume)?)?0*${2}-0*${3}\)?" || \
+	echo "${1}" | grep -Ei                                \
+	"\(?v(ol(ume)?)?0*${2}-0*${3}\)?(\s*-?c(h(apter)?)?\s*[0-9,-]+)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
+
+	return $?
+}
+
+match_chap ()
+# $1 - list to grep
+# $2 - vol # to match
+# ret - 0 on match, 1 on no match
+{
+	# first fmt chk: ^([]|<>|())tag -? name -? ((v)) c$2
+	# sec fmt chk: name -? v -? c$2 -? ([]|<>|())tag (+ w/e).ext$
+	echo "${1}" | grep -Ei                                \
+	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?\(?(v(ol(ume)?)?\d+)?c(h(apter)?)?${2}\)?" || \
+	echo "${1}" | grep -Ei                                \
+	"\(?v(ol(ume)?)?c(h(apter)?)?0*${2}\)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
+
+	return $?
 }
 
 filter_match ()
@@ -97,7 +129,8 @@ filter_match ()
 			} else if ($1 == "type") {
 				IGNORECASE = 1
 				ret = fls ~ "\\."$2"$"
-			}
+			} else return 1
+
 			return ret
 		}
 		{
@@ -247,6 +280,7 @@ use_curl ()
 		ver "attempting download of:\n-----\n${1}\n-----"
 		echo "${1}" | while read f; do
 		ver "would curl https://manga.madokami.com/${dir}/${f}" # -o ${PREFIX}/${1}"
+		cdl="$(printf "%s\n%s" "${cdl}" "${f}")"
 		#	curl -sL                                 \
 		#	-u "${user}:${pass}"                     \
 		#	"https://manga.madokami.com/${dir}/${f}" \
@@ -301,11 +335,13 @@ use_curl ()
 			case $? in
 			0)
 				ver 'found a complete collection'
-				filtm=`filter_match "${compar}" 'complete archives'` || break
+				filtm=`filter_match "${compar}" 'complete archives'` || \
+				die 'BUG: filter_match() returned non-zero'
 			;;
 			1)
 				ver 'No complete archive found. Filtering whole listing...'
-				filtm=`filter_match "${dls}" 'all archives'` || break
+				filtm=`filter_match "${dls}" 'all archives'` || \
+				die 'BUG: filter_match() returned' "${?}"
 			;;
 			2) break ;;
 			esac
@@ -313,25 +349,30 @@ use_curl ()
 			break
 		elif [ "${req%% *}" = 'v' ]; then
 			dbg 'v match'
+			match="" filtm="" # ensure these are always cleared
 			local curnum=`echo ${req} | cut -f2 -d' '`
+			local firstnum=${curnum}
 			dbg "\$curnum - ${curnum}"
 			match=`match_vol "${dls}" ${curnum}`         && \
 			filtm=`filter_match "${match}" vol${curnum}` && \
 			dbg "match:\n-----\n${match}\n-----"         && \
-			dbg "filtm:\n-----\n${filtm}\n-----"         && \
-			curl_http "${filtm}"                         || \
+			dbg "filtm:\n-----\n${filtm}\n-----"         || \
 			ver "no filtered match for vol${curnum}, cont. check on later vols..."
-			local curf=2 lastn nxm
+			local curf=2 lastn nxm="" fil=""
 			while :; do
 				: $((curf += 1))
 				lastn=${curnum}
 				curnum=`echo ${req} | cut -f${curf} -d' '`
 				dbg "curf - ${curf} curnum - ${curnum} lastn - ${lastn}"
-				[ -z "${curnum}" ] && break
+				if [ -z "${curnum}" ]; then # no range
+					[ -n "${filtm}" ] && curl_http "${filtm}"
+					break
+				fi
 				case ${curnum} in
 				-)
 					: $((curf += 1))
 					curnum=`echo ${req} | cut -f${curf} -d' '`
+					# TODO: check for greatest multi-vol
 					if [ -z "${curnum}" ]; then # open-end range
 						local curl_oe_ls=""
 						while :; do
@@ -358,26 +399,41 @@ use_curl ()
 						curl_http "${curl_oe_ls}"
 					else
 						dbg 'in closed range'
+						# first check for a multi-vol archive
+						nxm=`match_vol_range "${dls}" "${firstnum}" "${curnum}"` && \
+						fil=`filter_match "${nxm}" "vol${firstnum}-${curnum}"`   && \
+						dbg 'cr multi-vol match'                                 && \
+						curl_http "${fil}"                                       || \
 						while [ ${lastn} -lt ${curnum} ]; do
 							: $((lastn += 1))
-							nxm=`match_vol "${dls}" "${lastn}"`     &&        \
-							fil=`filter_match "${nxm}" vol${lastn}` ||        \
+							# first check for a multi-vol archive
+							nxm=`match_vol_range "${dls}" "${lastn}" "${curnum}"` &&   \
+							fil=`filter_match "${nxm}" \
+							                  "vol${lastn}-${curnum}"`            &&   \
+							dbg 'matched a multi-vol archive'                     &&   \
+							curl_http "${fil}" && break                           ||   \
+							{ nxm=`match_vol "${dls}" "${lastn}"` && \
+							  fil=`filter_match "${nxm}" vol${lastn}` ;}          ||   \
 							{ ver                                             \
 							  "no match for vol${lastn}, continuing check on" \
 							  "later vols..." ; continue ;}
-							dbg "fil - ${fil}"
-							curl_http "${nxm}"
+							curl_http "${fil}"
 						done
 					fi
 					;;
-				*) die 'curnum is:' "v ${curnum}"
+				*) die 'use_curl(): BUG: bad vol range'
 				   ;;
 				esac
 			done
 		elif [ "${req%% *}" = 'c' ]; then
 			dbg 'c match'
+			local curnum=`echo ${req} | cut -f2 -d' '`
+			if match_chap "${cdl}" "${curnum}"; then
+				ver "ch${curnum} was already downloaded, skipping..."
+				continue
+			fi
 		else # fallthru
-			die 'use_curl(): while read req fallthru'
+			die 'use_curl(): BUG: while read req fallthru'
 		fi
 	done
 }
@@ -447,6 +503,10 @@ add_pref ()
 # - better handling for multiple search matches
 # - add checks for multi-part vols e.g. vol1 (1 of 3)
 # - add caching
+# - _way_ too much code duplication
+# - right now close ended range checks only look for $lastn .. $curnum
+#                                                    (vol - lastvol)
+# - better option handling
 # - make the code less shitty
 
 [ $# -eq 0 ] && usage
