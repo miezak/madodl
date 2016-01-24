@@ -314,19 +314,29 @@ use_curl ()
 	# $1 - file(s) to dl
 	{
 		ver "attempting download of:\n-----\n${1}\n-----"
-		echo "${1}" | while read f; do
+		# we need a named pipe here to preserve the modified $cdl
+		# outside of the pipeline
+		[ -z "${np}"   ] && die 'BUG: use_curl(): curl_http(): no fifo'
+		[ -z "${PATH}" ] && die 'BUG: use_curl(): curl_http(): no PATH'
+		echo "${PATH}" > "${np}" &
+		echo "${1}"    > "${np}" &
+		while read -r f; do
+			if [ "${f}" = "${PATH}" ]; then
+				PATH="${f}" ; export PATH
+				continue
+			fi
 		ver "would curl https://manga.madokami.com/${dir}/${f}" # -o ${PREFIX}/${1}"
-		if [ -z "${cdl}" ]; then
-			cdl="${f}"
-		else
-			cdl="$(printf "%s\n%s" "${cdl}" "${f}")"
-		fi
+			if [ -z "${cdl}" ]; then
+				cdl="${f}"
+			else
+				cdl="$(printf "%s\n%s" "${cdl}" "${f}")"
+			fi
 		#	curl -sL                                 \
 		#	-u "${user}:${pass}"                     \
 		#	"https://manga.madokami.com/${dir}/${f}" \
 		#	-o "${PREFIX}/${f}" && \
 		#	cdl="$(printf "%s\n%s" "${cdl}" "${f}")"
-		done
+		done < "${np}"
 
 		if [ $? -ne 0 ]; then
 			die "curl_http(): curl failed"
@@ -365,6 +375,11 @@ use_curl ()
 	[ -z "${dls}" ] && die 'no files found!'
 	dbg "files:\n-----\n${dls}\n-----"
 	local cdl=""
+	rnd=`awk -v min=5 -v max=9999 \
+	    'BEGIN {srand() ; print int(min+rand()*(max-min+1))}'`
+	np=`printf "%s/madodl.%s" "${TMPDIR:-/tmp}" "${rnd}"`
+	mkfifo "${np}"
+	[ $? -ne 0 ] && die 'use_curl(): failed to create fifo'
 	parse_req_files "$2" "$3" | \
 	while read req; do
 		dbg "\$req - ${req}"
@@ -400,7 +415,6 @@ use_curl ()
 			ver "no filtered match for vol${curnum}," \
 			    "cont. check on later vols..."
 			local curf=2 lastn nxm="" fil=""
-			dbg "V CDL" "${cdl}"
 			while :; do
 				: $((curf += 1))
 				lastn=${curnum}
@@ -414,7 +428,6 @@ use_curl ()
 				-)
 					: $((curf += 1))
 					curnum=`echo ${req} | cut -f${curf} -d' '`
-					# TODO: check for greatest multi-vol
 					if [ -z "${curnum}" ]; then # open-end range
 						local curl_oe_ls="" ret
 						nxm=`match_vol_range "${dls}" "${firstnum}"`
@@ -422,6 +435,9 @@ use_curl ()
 							lr=`get_largest_range "${nxm}"`
 							fil=`filter_match "${lr%% *}" vol1-${lr##* }`
 							lastn=`expr ${lr##* } + 1`
+							curl_oe_ls="${fil}"
+						else
+							[ -n "${filtm}" ] && curl_oe_ls="${filtm}"
 						fi
 						while :; do
 							: $((lastn += 1))
@@ -490,8 +506,9 @@ use_curl ()
 		elif [ "${req%% *}" = 'c' ]; then
 			dbg 'c match'
 			local curnum=`echo ${req} | cut -f2 -d' '`
+			dbg 'curnum' "${curnum}"
 			dbg "CDL" "${cdl}"
-			if match_chap "${cdl}" "${curnum}"; then
+			if ! match_chap "${cdl}" "${curnum}"; then
 				ver "ch${curnum} was already downloaded, skipping..."
 				continue
 			fi
