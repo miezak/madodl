@@ -61,9 +61,9 @@ match_vol ()
 	# first fmt chk: ^([]|<>|())tag -? name -? (())v$2
 	# sec fmt chk: name -? v$2 -? c -? ([]|<>|())tag (+ w/e).ext$
 	echo "${1}" | grep -Ei                                \
-	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?.+\s+\(?v(ol(ume)?)?0*${2}[^0-9-]\)?" || \
+	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?.+\s+\(?v(ol(ume)?)?0*${2}[^0-9,-]\)?" || \
 	echo "${1}" | grep -Ei                                \
-	".+\s+\(?v(ol(ume)?)?0*${2}[^0-9-]\)?(\s*-?c(h(apter)?)?\s*[0-9,-]+)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
+	".+\s+\(?v(ol(ume)?)?0*${2}[^0-9,-]\)?(\s*-?c(h(apter)?)?\s*[0-9,-]+)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
 
 	return $?
 }
@@ -92,10 +92,10 @@ match_chap ()
 {
 	# first fmt chk: ^([]|<>|())tag -? name -? ((v)) c$2
 	# sec fmt chk: name -? v -? c$2 -? ([]|<>|())tag (+ w/e).ext$
-	echo "${1}" | grep -Ei                                \
-	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?.+\s+\(?(v(ol(ume)?)?\d+)?c(h(apter)?)?${2}\)?" || \
-	echo "${1}" | grep -Ei                                \
-	".+\s+\(?v(ol(ume)?)?c(h(apter)?)?0*${2}\)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
+	echo "${1}" | grep -Ei \
+	"^((\[|<|\().+(\]|>|\)))?(\s*-?\s*)?.+\s+\(?(v(ol(ume)?)?\d+)?c(h(apter)?)?0*${2}[^0-9,-]\)?" || \
+	echo "${1}" | grep -Ei \
+	".+\s+\(?v(ol(ume)?)?c(h(apter)?)?0*${2}[0-9,-]\)?(\s*-?(\[|<|\().+(\]|>|\))\s*)?(\s*+\s*.+)?\..+$"
 
 	return $?
 }
@@ -414,15 +414,19 @@ use_curl ()
 			dbg "filtm:\n-----\n${filtm}\n-----"         || \
 			ver "no filtered match for vol${curnum}," \
 			    "cont. check on later vols..."
-			local curf=2 lastn nxm="" fil=""
+			local curf=2 lastn nxm="" fil="" first=1
 			while :; do
 				: $((curf += 1))
 				lastn=${curnum}
 				curnum=`echo ${req} | cut -f${curf} -d' '`
 				dbg "curf - ${curf} curnum - ${curnum} lastn - ${lastn}"
-				if [ -z "${curnum}" ]; then # no range
-					[ -n "${filtm}" ] && curl_http "${filtm}"
-					break
+				if [ -z "${curnum}" ]; then # no range, or done processing
+					if [ ${first} -eq 1 ]; then
+						[ -n "${filtm}" ] && curl_http "${filtm}"
+						break
+					else
+						break
+					fi
 				fi
 				case ${curnum} in
 				-)
@@ -498,17 +502,30 @@ use_curl ()
 							curl_http "${fil}"
 						done
 					fi
-					;;
+				;;
+				,)
+					# if previous number had a filter match
+					# then fetch it
+					[ $first -eq 1  ] && \
+					[ -n "${filtm}" ] && \
+					curl_http "${filtm}"
+					: $((curf += 1))
+					num=`echo "${req}" | cut -f${curf} -d' '`
+					match=`match_vol "${dls}" "${num}"` && \
+					filtm=`filter_match "${match}"`     && \
+					curl_http "${filtm}"
+				;;
 				*) die 'use_curl(): BUG: bad vol range'
-				   ;;
+				;;
 				esac
+			[ $first -eq 1 ] && first=0
 			done
 		elif [ "${req%% *}" = 'c' ]; then
 			dbg 'c match'
 			local curnum=`echo ${req} | cut -f2 -d' '`
 			dbg 'curnum' "${curnum}"
-			dbg "CDL" "${cdl}"
-			if ! match_chap "${cdl}" "${curnum}"; then
+			dbg "CDL" "\n-----\n${cdl}\n-----"
+			if match_chap "${cdl}" "${curnum}" >/dev/null; then
 				ver "ch${curnum} was already downloaded, skipping..."
 				continue
 			fi
@@ -587,6 +604,7 @@ add_pref ()
 # - right now close ended range checks only look for $lastn .. $curnum
 #                                                    (vol - lastvol)
 # - better option handling
+# - seperate matching regex and related code into unified specific funcs
 # - make the code less shitty
 
 [ $# -eq 0 ] && usage
