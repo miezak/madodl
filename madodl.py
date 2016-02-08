@@ -532,30 +532,38 @@ def search_exact(name=''):
     return buf
 
 VERSION = '0.1.0'
+#
+# TODO:
+# - Check if a naming scheme is using _only_ chapters without a ch prefix,
+#   and thus, should default to chapters instead of vols. Probable solution
+#   would be to check for two or more leading zeros (there probably aren't
+#   100 volumes)
+#
 def main():
+
     args_parser = \
     argparse.ArgumentParser(description='Download manga from madokami.',\
                             usage='%(prog)s [-dhsv] [-p ident val ...] '\
-                                            '<-m manga '                \
-                                            '[volume(s)] [chapter(s)]>')
+                                            '-m manga '                 \
+                                            '[volume(s)] [chapter(s)] ...')
     args_parser.add_argument('-d', action='store_true', dest='debug', \
                              help='print debugging messages')
     args_parser.add_argument('-s', action='store_true', dest='silent', \
-                             help='silent message output')
+                             help='silence message output')
     args_parser.add_argument('-v', action='store_true', dest='verbose', \
                              help='print verbose messages')
     args_parser.add_argument('-V', '--version', action='version',
-                             version='madodl ' + VERSION[0])
-    args_parser.add_argument('-m', nargs='*', action='append', dest='manga', \
-                             help='''the name of the manga to download.
-                                  if no arguments are supplied, all manga under
-                                  this name are downloaded. otherwise, -m takes
-                                  a list of volumes and/or a list of chapters
-                                  to download.
-                                  the format for these lists are as follows:\n
-                                  v(list) or vol(list)\nwhere list is one of:\n
-                                  1-\n
-                                  1-(...), num, ...''')
+                             version='madodl ' + VERSION)
+    args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
+                             required=True,                                  \
+                             metavar=('manga', 'volume(s) chapter(s)'),      \
+                             help='''
+                                  The name of the manga to download.
+                                  If only the manga title is given, all manga
+                                  under this name are downloaded. otherwise, -m
+                                  takes a list of volumes and/or a list of
+                                  chapters to download.
+                                  ''')
     args = args_parser.parse_args()
     if args.silent:
         loglvl = logging.CRITICAL
@@ -574,12 +582,6 @@ def main():
                                '%(levelname)s: %(message)s')
     cons_hdlr.setFormatter(logfmt)
     log.addHandler(cons_hdlr)
-
-    if args.manga is not None:
-        if [] in args.manga:
-            die('error', '`-m` flag requires at least one argument')
-    else:
-        die('error', '`-m` must be invoked')
 
     #for m in args.manga:
     #    ParseRequest(m).__repr__()
