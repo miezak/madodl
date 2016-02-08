@@ -242,7 +242,7 @@ class ParseFile(ParseCommon):
             val = t.group(typ)
             self._alltoks.append({'typ' : typ, 'val' : val})
 
-        if self._alltoks[len(self._alltoks)-1]['typ'] != 'EXT':
+        if self._alltoks[-1]['typ'] != 'EXT':
             die('FATAL', 'Encountered a file without an extension, which is '\
                          'not currently supported. Bailing.')
         for t in self._alltoks:
