@@ -3,6 +3,7 @@
 import os, sys
 import re
 from io import BytesIO
+from html.parser import HTMLParser
 import argparse
 import logging
 
@@ -20,6 +21,7 @@ loc = {
     'FTPPORT'  : 24430                ,
     'SFTPPORT' : 38460                ,
     'MLOC'     : '/Manga/'            ,
+    'SEARCH'   : '/search?q='         ,
 }
 
 def die(lvl, msg):
@@ -90,8 +92,7 @@ def curl_url(url):
         enc = 'iso-8859-1'
         log.info('assuming encoding is %s' % enc)
 
-    #body = buf.getvalue()
-    #print(body.decode(enc))
+    return buf
 
 class ParseCommon:
     ''' ADDME '''
@@ -439,29 +440,33 @@ class ParseRequest(ParseCommon):
                 else:
                     log.warning('No vol/ch prefix. Assuming volume.')
                     what = 'VOL'
+                    tmp = [0 for z in range(len(self._alltoks)+1)]
+                    for idx in range(len(self._alltoks)):
+                        tmp[idx+1] = self._alltoks[idx]
+                    self._alltoks = tmp
             elif len(self._alltoks) == 1 or self.get_tok_typ(1) != 'NUM':
                 raise RuntimeError('no number specified for %s' % what)
             self.last = True if what == 'VOL' else False
             prev = []
-            for self._idx in range(1, len(self._alltoks)):
-                typ = self.get_tok_typ(self._idx)
-                val = self.get_tok_val(self._idx)
+            for idx in range(1, len(self._alltoks)):
+                typ = self.get_tok_typ(idx)
                 if typ == 'NUM':
                     if prev:
-                        tmpv = val[:]
+                        tmpv = self.get_tok_val(idx)[:]
                         tmpm = min(prev)
                         if tmpv < tmpm:
                             self.set_tok_val(minidx, tmpv)
                             self.set_cur_tok_val(tmpm)
-                            minidx = self._idx
+                            minidx = idx
                             prev.append(tmpv)
                     else:
                         prev.append(val)
-                        minidx = self._idx
+                        minidx = idx
             tokcpy = self._alltoks[:]
             for self._idx in range(1, len(self._alltoks)):
                 typ = self.cur_tok_typ()
                 val = self.cur_tok_val()
+                log.debug(str(typ)+' '+str(val))
                 if typ == 'RNG':
                     if self._idx == len(self._alltoks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
@@ -488,7 +493,6 @@ class ParseRequest(ParseCommon):
                        self._alltoks[self._idx+1]['typ'] != 'NUM':
                         log.warning('Extraneous comma detected. Removing.')
                         diff = len(self._alltoks) - len(tokcpy)
-                        del tokcpy[self._idx - diff]
                     else:
                         self._idx += 1
                         self.push_to_last(float(self.cur_tok_val()))
@@ -500,6 +504,53 @@ class ParseRequest(ParseCommon):
 
     def __repr__(self):
         print(self._vols, self._chps)
+
+class ParseQuery(HTMLParser):
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.lasttag = None
+        self.resultnum = None
+        self.results = []
+        self.h1b = False
+        self.h1e = False
+        self.contb = False
+        self.conte = False
+        self.cont_td = False
+        self.prev = None
+
+    def handle_starttag(self, tag, attr):
+        if tag == 'h1':
+            self.h1b = True
+        elif tag == 'div':
+            if ('class', 'container') in attr:
+                self.contb = True
+        if tag == 'a' and self.prev == 'td' and self.contb and not self.conte:
+            self.cont_td = True
+            self.href = attr[0][1]
+        else: self.cont_td = False
+        self.prev = tag
+
+    def handle_endtag(self, tag):
+        if tag == 'h1':
+            self.h1e = True
+        elif tag == 'div' and self.contb:
+            self.conte = True
+
+    def handle_data(self, data):
+        if self.h1b and not self.h1e:
+            data = data.lstrip().rstrip()
+            if data.startswith('Search'):
+                self.resultnum = int(data[-2])
+        if self.contb and not self.conte:
+            if self.cont_td:
+                if data.strip():
+                    if data[0] != '/':
+                        self.results[-1][1] += data
+                    else:
+                        self.results.append([self.href,data])
+
+    def __repr__(self):
+        pass #print(self.resultnum, self.results)
 
 def create_nwo_path(name):
     '''Crself.eate the exact path that the manga `name` should be in.
@@ -517,19 +568,28 @@ def create_nwo_path(name):
     name = name.upper()
     return re.sub(r'^(.)(.|)?(.|)?(.|)?.*', r'\1/\1\2/\1\2\3\4', name)
 
-def search_exact(name=''):
+def search_exact(name='',ml=False):
     buf = BytesIO()
-    path = create_nwo_path(name)
+    path = create_nwo_path(name) if not ml else ''
     c = curl_common_init(buf)
     c.setopt(c.DIRLISTONLY, True)
     c.setopt(c.USE_SSL, True)
     c.setopt(c.SSL_VERIFYPEER, False)
     c.setopt(c.USERPWD, loc['USER']+':'+loc['PASS'])
     c.setopt(c.PORT, loc['FTPPORT'])
-    c.setopt(c.URL, 'ftp://'+loc['DOMAIN']+loc['MLOC']+path+'/'+name+'/')
+    ml = loc['MLOC'] if not ml else ''
+    log.info('ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
+    c.setopt(c.URL, 'ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
     c.perform()
     c.close()
     return buf
+
+def search_query(name=''):
+    return curl_url('https://'+loc['DOMAIN']+loc['SEARCH']+name)
+
+def _(msg):
+    if not silent:
+        print('%s: %s' % (os.path.basename(__file__), msg))
 
 VERSION = '0.1.0'
 #
@@ -573,7 +633,8 @@ def main():
         loglvl = logging.INFO
     else:
         loglvl = logging.WARNING
-    global log, all_seen, compdl
+    global log, silent, all_seen, compdl
+    silent = args.silent
     log = logging.getLogger('stream_logger')
     log.setLevel(loglvl)
     cons_hdlr = logging.StreamHandler()
@@ -583,19 +644,56 @@ def main():
     cons_hdlr.setFormatter(logfmt)
     log.addHandler(cons_hdlr)
 
-    #for m in args.manga:
-    #    ParseRequest(m).__repr__()
-
-    #jsonfh = curl_json_list('f.json', True)
-    sout = search_exact(args.manga[0][0])
-    for f in sout.getvalue().decode().splitlines():
-        fo = ParseFile(f)
-        fo.__repr__()
-        if fo.other: print(fo.other)
-    #a=ParseFile(args.manga[0][0])
-    #a.__repr__()
-    #if a.other:
-    #    print(a.other)
+    for m in args.manga:
+        name = m[0]
+        req = ParseRequest(m)
+        #jsonfh = curl_json_list('f.json', True)
+        sout = search_query(name).getvalue().decode()
+        qp = ParseQuery()
+        qp.feed(sout)
+        # FIXME:
+        # this is a temporary workaround to
+        # filter out non-manga results until
+        # madokami allows for this granularity itself.
+        qp.mresultnum = 0
+        qp.mresults = []
+        for url, r in qp.results:
+            if r.startswith('/Manga') and r.count('/') >= 5:
+                qp.mresults.append([url,r])
+                qp.mresultnum += 1
+        if qp.mresultnum == 0:
+            die('error', 'manga not found')
+        if qp.mresultnum > 1:
+            print('Multiple matches found. Please choose from the selection '\
+                  'below:\n')
+            i = 1
+            for url, f in qp.mresults:
+                print(str(i)+':', os.path.basename(f))
+                i += 1
+            print()
+            while 1:
+                try:
+                    ch = int(input('choice > '))
+                    if ch in range(1, i): break
+                    print('Pick a number between 1 and %d' % (i-1))
+                except ValueError:
+                    print('Invalid input.')
+            m = qp.mresults[ch-1][0]
+        else: m = qp.mresults[0][0]
+        sout = search_exact(m, True).getvalue().decode()
+        log.info('\n-----\n'+sout+'-----')
+        for f in sout.splitlines():
+            fo = ParseFile(f)
+            allv = []
+            for fof in fo._vols:
+                if fof in req._vols:
+                    allv.append(fof)
+            if allv:
+                _('downloading vol '+str(allv)+' '+f)
+        #a=ParseFile(args.manga[0][0])
+        #a.__repr__()
+        #if a.other:
+        #    print(a.other)
 
 if __name__ == '__main__':
     main()
