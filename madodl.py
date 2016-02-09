@@ -553,7 +553,7 @@ class ParseQuery(HTMLParser):
         pass #print(self.resultnum, self.results)
 
 def create_nwo_path(name):
-    '''Crself.eate the exact path that the manga `name` should be in.
+    '''Create the exact path that the manga `name` should be in.
 
        This path is constructed in the `New World Order` format
        described here: manga.madokami.com/Info/NewWorldOrder.txt
