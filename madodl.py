@@ -587,6 +587,11 @@ def search_exact(name='',ml=False):
 def search_query(name=''):
     return curl_url('https://'+loc['DOMAIN']+loc['SEARCH']+name)
 
+def rm_req_elems(req, comp):
+    for n in comp:
+        if n in req:
+            req.remove(n)
+
 def _(msg):
     if not silent:
         print('%s: %s' % (os.path.basename(__file__), msg))
@@ -632,8 +637,8 @@ def main():
     elif args.verbose:
         loglvl = logging.INFO
     else:
-        loglvl = logging.WARNING
-    global log, silent, all_seen, compdl
+        loglvl = logging.ERROR
+    global log, silent, compv, compc
     silent = args.silent
     log = logging.getLogger('stream_logger')
     log.setLevel(loglvl)
@@ -682,14 +687,44 @@ def main():
         else: m = qp.mresults[0][0]
         sout = search_exact(m, True).getvalue().decode()
         log.info('\n-----\n'+sout+'-----')
+        compv = []
+        compc = []
+        reqv_cpy = req._vols[:]
+        reqc_cpy = req._chps[:]
         for f in sout.splitlines():
             fo = ParseFile(f)
-            allv = []
-            for fof in fo._vols:
-                if fof in req._vols:
-                    allv.append(fof)
-            if allv:
-                _('downloading vol '+str(allv)+' '+f)
+            vq = [] ; cq = []
+            apnd = False
+            for fov in fo._vols:
+                if fov in req._vols:
+                    if fov in compv: # already seen this vol
+                        print('**SEEN**')
+                        for foc in fo._chps: # then check if vol is split
+                            if foc not in compc: # with all new chps
+                                continue # is new
+                            else:
+                                print('**BAD**')
+                                log.warning('dup vol and chps seen')
+                                break
+                        else: # all new
+                            apnd = True
+                            vq.append(fov)
+                    else:
+                        apnd = True
+                        vq.append(fov)
+            if apnd:
+                for foc in fo._chps:
+                    cq.append(foc)
+            if vq:
+                _('downloading vol '+str(vq)+' ')
+                _('downloading chp '+str(cq)+' '+f)
+            for v in vq: compv.append(v)
+            for c in cq: compc.append(c)
+            rm_req_elems(reqv_cpy, vq)
+            rm_req_elems(reqc_cpy, cq)
+            compv = list(set(compv))
+            compc = list(set(compc))
+            _('%s %s %s %s' % (reqv_cpy, reqc_cpy, compv, compc))
         #a=ParseFile(args.manga[0][0])
         #a.__repr__()
         #if a.other:
