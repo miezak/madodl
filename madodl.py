@@ -610,9 +610,11 @@ def walk_thru_listing(req, dir_ls):
        req - User requested files.
        dir_ls - FTP directory listing.
 
-       Returns a tuple of three lists and one str. The objects are, in order:
-       matched volumes, manga, filenames, and the complete archive filename
-       (if matched) in the case that all volumes are requested.
+       Returns a tuple of three lists and one str.
+
+       The objects contain, in order:
+       matched (volumes, chapters, filenames), and the complete archive
+       filename (if matched) in the case that all volumes are requested.
     '''
     compv = []
     compc = []
