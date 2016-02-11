@@ -250,6 +250,7 @@ class ParseFile(ParseCommon):
         if self._alltoks[-1]['typ'] != 'EXT':
             die('FATAL', 'Encountered a file without an extension, which is '\
                          'not currently supported. Bailing.')
+
         for t in self._alltoks:
             if t['typ'] == 'NUM':
                 t['val'] = float(t['val'])
@@ -602,6 +603,77 @@ def rm_req_elems(req, comp):
         if n in req:
             req.remove(n)
 
+def walk_thru_listing(req, dir_ls):
+    '''Walk through FTP directory listing and extract requested data.
+
+       Parameters:
+       req - User requested files.
+       dir_ls - FTP directory listing.
+
+       Returns a tuple of three lists and one str. The objects are, in order:
+       matched volumes, manga, filenames, and the complete archive filename
+       (if matched) in the case that all volumes are requested.
+    '''
+    compv = []
+    compc = []
+    allf = []
+    compfile = None
+    reqv_cpy = req._vols[:]
+    reqc_cpy = req._chps[:]
+    for f in dir_ls.splitlines():
+        # FIXME:
+        # handle this in a more fail-safe manner.
+        if f == 'Viz Releases':
+            continue # auto-uploaded dir
+        fo = ParseFile(f)
+        vq = [] ; cq = []
+        apnd = False
+        if req._all:
+            if fo._all:
+                log.info('found complete archive')
+                log.info('file - %s' % f)
+                compfile = f
+                break
+            continue
+        for fov in fo._vols:
+            if fov in req._vols:
+                if fov in compv: # already seen this vol
+                    for foc in fo._chps: # then check if vol is split
+                        if foc not in compc: # with all new chps
+                            continue # is new
+                        else:
+                            log.warning('dup vol and chps seen')
+                            break
+                    else: # all new
+                        apnd = True
+                        vq.append(fov)
+                else:
+                    apnd = True
+                    vq.append(fov)
+        if apnd:
+            for foc in fo._chps:
+                cq.append(foc)
+        for reqc in req._chps:
+            if reqc in fo._chps and reqc not in cq:
+                if len(fo._chps) == 1: # only a single chp
+                    cq.append(reqc)
+        if vq:
+            log.info('found vol %s ' % str(vq))
+        if cq:
+            log.info('found chp %s ' % str(cq))
+        if vq or cq:
+            allf.append((f, vq, cq))
+            log.info('file - %s' % f)
+        for v in vq: compv.append(v)
+        for c in cq: compc.append(c)
+        rm_req_elems(reqv_cpy, vq)
+        rm_req_elems(reqc_cpy, cq)
+        compv = list(set(compv))
+        compc = list(set(compc))
+    compv = sorted(compv)
+    compc = sorted(compc)
+    return (compv, compc, allf, compfile)
+
 def _(msg):
     if not silent:
         print('%s: %s' % (os.path.basename(__file__), msg))
@@ -613,6 +685,10 @@ VERSION = '0.1.0'
 #   and thus, should default to chapters instead of vols. Probable solution
 #   would be to check for two or more leading zeros (there probably aren't
 #   100 volumes)
+# - handle the case where a complete archive has no prefixes (and is probably
+#   the only file in the directory)
+# - handle sub-directories in file listing
+# - match filtering
 #
 def main():
 
@@ -699,62 +775,16 @@ def main():
             _('one match found: %s' % os.path.basename(qp.mresults[0][1]))
         sout = search_exact(m, True).getvalue().decode()
         log.info('\n-----\n'+sout+'-----')
-        compv = []
-        compc = []
-        allf = []
-        compfile = None
-        reqv_cpy = req._vols[:]
-        reqc_cpy = req._chps[:]
-        for f in sout.splitlines():
-            fo = ParseFile(f)
-            vq = [] ; cq = []
-            apnd = False
-            if req._all:
-                if fo._all:
-                    log.info('found complete archive')
-                    log.info('file - %s' % f)
-                    compfile = f
-                    break
-                continue
-            for fov in fo._vols:
-                if fov in req._vols:
-                    if fov in compv: # already seen this vol
-                        for foc in fo._chps: # then check if vol is split
-                            if foc not in compc: # with all new chps
-                                continue # is new
-                            else:
-                                log.warning('dup vol and chps seen')
-                                break
-                        else: # all new
-                            apnd = True
-                            vq.append(fov)
-                    else:
-                        apnd = True
-                        vq.append(fov)
-            if apnd:
-                for foc in fo._chps:
-                    cq.append(foc)
-            for reqc in req._chps:
-                if reqc in fo._chps and reqc not in cq:
-                    if len(fo._chps) == 1: # only a single chp
-                        cq.append(reqc)
-            if vq:
-                log.info('found vol %s ' % str(vq))
-            if cq:
-                log.info('found chp %s ' % str(cq))
-            if vq or cq:
-                allf.append((f, vq, cq))
-                log.info('file - %s' % f)
-            for v in vq: compv.append(v)
-            for c in cq: compc.append(c)
-            rm_req_elems(reqv_cpy, vq)
-            rm_req_elems(reqc_cpy, cq)
-            compv = list(set(compv))
-            compc = list(set(compc))
-        compv = sorted(compv)
-        compc = sorted(compc)
+        compv, compc, allf, compfile = \
+        walk_thru_listing(req, sout)
+        missv = str([v for v in req._vols if v not in compv]).strip('[]')
+        missc = str([c for c in req._chps if c not in compc]).strip('[]')
+        if missv:
+            _("couldn't find vol(s): " + missv)
+        if missc:
+            _("couldn't find chp(s): " + missc)
         if compfile:
-            _('downloading complete archive...')
+            _('downloading complete archive `%s`' % compfile)
         elif compv or compc:
             _('downloading volume/chapters...')
             for f,v,c in allf:
@@ -763,6 +793,8 @@ def main():
             print()
         else:
             _('could not find requested volume/chapters.')
+
+    return 0
 
 if __name__ == '__main__':
     try: main()
