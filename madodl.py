@@ -4,6 +4,8 @@ import os, sys
 import re
 from io import BytesIO
 from html.parser import HTMLParser
+from time import sleep
+import urllib.parse
 import argparse
 import logging
 
@@ -102,6 +104,7 @@ class ParseCommon:
     def __init__(self):
         self._idx=0
         self._alltoks = []
+        self._all = False
         self._vols = []
         self._chps = []
 
@@ -224,10 +227,11 @@ class ParseFile(ParseCommon):
                         (c(h(a?p(ter)?)?)?|e(p(isode)?)?)
                         (?=(-|_|\.|\s+)*[0-9])
                      ''') ,
-            ('ART', r'artbook')             ,
-            ('PLT', r'pilot')               ,
-            ('PRL', r'prologu?e')           ,
-            ('PRE', r'prelude')             ,
+            ('ALL', r'complete')  ,
+            ('ART', r'artbook')   ,
+            ('PLT', r'pilot')     ,
+            ('PRL', r'prologu?e') ,
+            ('PRE', r'prelude')   ,
             ('OMK', r'''(?x)
                         \+?(?=(-|_|\.|\s+)*)
                         (omake|extra|bonus|special)
@@ -379,6 +383,8 @@ class ParseFile(ParseCommon):
                                 'a vol/chp identifier, which may be '  \
                                 'incorrect. Adding anyway...')
                 self.other = t
+            elif t == 'ALL':
+                self._all = True
 
             self._idx += 1
 
@@ -409,13 +415,17 @@ class ParseRequest(ParseCommon):
         ParseCommon.__init__(self)
         self.name = req[0]
         del req[0]
+        if not req:
+            self._all = True
+            return
         for vc in req:
             vc = re.sub(r'\s', '', vc)
             vc = vc.lower()
-        if req[0] == 'all' and req[1] == 'all':
-            log.warning('`All` requested twice for `{1}`. '\
-                        'Ignoring second parameter.'.format(self.name))
-            del req[1]
+        if 'all' in req:
+            self._all = True
+            del req[0]
+            if req: del req[0]
+            return
         tok_spec =  [
             ('VOL', r'v(ol)?')      ,
             ('CHP', r'ch?p?')       ,
@@ -684,26 +694,35 @@ def main():
                 except ValueError:
                     print('Invalid input.')
             m = qp.mresults[ch-1][0]
-        else: m = qp.mresults[0][0]
+        else:
+            m = qp.mresults[0][0]
+            _('one match found: %s' % os.path.basename(qp.mresults[0][1]))
         sout = search_exact(m, True).getvalue().decode()
         log.info('\n-----\n'+sout+'-----')
         compv = []
         compc = []
+        allf = []
+        compfile = None
         reqv_cpy = req._vols[:]
         reqc_cpy = req._chps[:]
         for f in sout.splitlines():
             fo = ParseFile(f)
             vq = [] ; cq = []
             apnd = False
+            if req._all:
+                if fo._all:
+                    log.info('found complete archive')
+                    log.info('file - %s' % f)
+                    compfile = f
+                    break
+                continue
             for fov in fo._vols:
                 if fov in req._vols:
                     if fov in compv: # already seen this vol
-                        print('**SEEN**')
                         for foc in fo._chps: # then check if vol is split
                             if foc not in compc: # with all new chps
                                 continue # is new
                             else:
-                                print('**BAD**')
                                 log.warning('dup vol and chps seen')
                                 break
                         else: # all new
@@ -715,23 +734,41 @@ def main():
             if apnd:
                 for foc in fo._chps:
                     cq.append(foc)
+            for reqc in req._chps:
+                if reqc in fo._chps and reqc not in cq:
+                    if len(fo._chps) == 1: # only a single chp
+                        cq.append(reqc)
             if vq:
-                _('downloading vol '+str(vq)+' ')
-                _('downloading chp '+str(cq)+' '+f)
+                log.info('found vol %s ' % str(vq))
+            if cq:
+                log.info('found chp %s ' % str(cq))
+            if vq or cq:
+                allf.append((f, vq, cq))
+                log.info('file - %s' % f)
             for v in vq: compv.append(v)
             for c in cq: compc.append(c)
             rm_req_elems(reqv_cpy, vq)
             rm_req_elems(reqc_cpy, cq)
             compv = list(set(compv))
             compc = list(set(compc))
-            _('%s %s %s %s' % (reqv_cpy, reqc_cpy, compv, compc))
-        #a=ParseFile(args.manga[0][0])
-        #a.__repr__()
-        #if a.other:
-        #    print(a.other)
+        compv = sorted(compv)
+        compc = sorted(compc)
+        if compfile:
+            _('downloading complete archive...')
+        elif compv or compc:
+            _('downloading volume/chapters...')
+            for f,v,c in allf:
+                sys.stdout.write('\rcurrent - %s' % f)
+                # curl file ...
+            print()
+        else:
+            _('could not find requested volume/chapters.')
 
 if __name__ == '__main__':
-    main()
+    try: main()
+    except KeyboardInterrupt:
+        print()
+        _('caught signal, exiting...')
 else:
     sys.stderr.write('madodl.py does not have a public API, and is not ' \
                      'meant to be called as a module. Use at your own risk.\n')
