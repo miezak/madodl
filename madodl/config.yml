@@ -1,0 +1,67 @@
+# Default madodl config file.
+#
+# This file is in YAML format.
+# See: http://pyyaml.org/wiki/PyYAMLDocumentation
+
+# specify tag to filter
+# ---------------------
+# REQUIRED:
+# name .. the name of the group to filter
+# OPTIONAL:
+# case .. casing the text is in
+#  values .. lower -> all lowercase
+#            upper -> all uppercase
+#            any   -> any casing
+#            exact -> exactly as the casing is in the name field
+#         DEFAULT -> any
+# filter .. how to filter this tag when downloading manga
+#  values .. only   -> only download manga matching this tag
+#            out    -> only download manga _NOT_ matching this tag
+#            prefer -> prefer this tag over others
+#            not prefer -> prefer other tags over this one
+#         DEFAULT -> prefer
+# for .. list of manga this rule applies to
+#  value .. name [volume/chapter list]
+#        DEFAULT -> all
+tags:
+# - name: HorribleScans
+#   case: exact
+#   filter: prefer
+#   for: [
+#          bakuman: v1 ,
+#          nisekoi: ch150 ,
+#          'title with space': ch50
+#        ]
+# - name: norwayscans
+#   filter: out
+
+# always silence message output (-s switch)
+# DEFAULT -> false
+no_output : false
+
+# where to save logging messages
+# DEFAULT -> None
+logfile : ''
+
+# what output to send to the logfile
+# values .. verbose -> only verbose messages
+#           debug   -> only debugging messages
+#           all     -> both verbose and debugging messages
+# DEFAULT -> verbose
+loglevel : verbose
+
+# use a local cache file that lists all the madokami files
+# in JSON format to search for titles instead of querying
+# the server.
+# DEFAULT -> false
+usecache : true
+
+# where to store cache file
+# DEFAULT -> $HOME/.cache/madodl/files.json
+cachefile : ''
+
+# madokami username
+user : ''
+
+# madokami password
+pass : ''

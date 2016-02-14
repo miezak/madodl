@@ -5,6 +5,7 @@ import re
 from io import BytesIO
 from html.parser import HTMLParser
 from time import sleep
+from itertools import chain
 import urllib.parse
 import argparse
 import logging
@@ -13,6 +14,12 @@ try:
     import pycurl
 except ImportError:
     sys.stderr.write('Need pycurl to use madodl!\n')
+    sys.exit(1)
+
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write('Need PyYAML to use madodl!\n')
     sys.exit(1)
 
 loc = {
@@ -172,8 +179,8 @@ class ParseCommon:
             else: break
             self._idx += 1
 
-    def __repr__(self):
-        pass
+    #def __repr__(self):
+    #    pass #return ''
 
 class ParseFile(ParseCommon):
     '''An inflexible title parser.
@@ -406,8 +413,8 @@ class ParseFile(ParseCommon):
         self._vols = sorted(set(self._vols))
         self._chps = sorted(set(self._chps))
 
-    def __repr__(self):
-        print('%s\n\t%s %s' % (self._f, self._vols, self._chps))
+    #def __repr__(self):
+    #    pass #print('%s\n\t%s %s' % (self._f, self._vols, self._chps))
 
 class ParseRequest(ParseCommon):
     ''' ADDME '''
@@ -513,8 +520,8 @@ class ParseRequest(ParseCommon):
             self._vols = sorted(set(self._vols))
             self._chps = sorted(set(self._chps))
 
-    def __repr__(self):
-        print(self._vols, self._chps)
+    #def __repr__(self):
+    #    pass #print(self._vols, self._chps)
 
 class ParseQuery(HTMLParser):
     def __init__(self):
@@ -560,8 +567,8 @@ class ParseQuery(HTMLParser):
                     else:
                         self.results.append([self.href,data])
 
-    def __repr__(self):
-        pass #print(self.resultnum, self.results)
+    #def __repr__(self):
+    #    pass #print(self.resultnum, self.results)
 
 def create_nwo_path(name):
     '''Create the exact path that the manga `name` should be in.
@@ -680,7 +687,88 @@ def _(msg):
     if not silent:
         print('%s: %s' % (os.path.basename(__file__), msg))
 
+def init_config():
+    c = None
+    global alltags
+    class TagFilter:
+        VALID_CASE = (
+            'lower' ,
+            'upper' ,
+            'any'   ,
+            'exact' ,
+        )
+        VALID_FILTER = (
+            'only'       ,
+            'out'        ,
+            'prefer'     ,
+            'not prefer' ,
+        )
+        DEFAULT_CASE = 'any'
+        DEFAULT_FILTER = 'prefer'
+        DEFAULT_FOR = 'all'
+        def __init__(self, tag, default=False):
+            self._tag = tag
+            self._for = []
+            if 'name' not in self._tag:
+                log.error('empty name in config tag filter')
+                raise yaml.YAMLError
+            self._name = self._tag['name']
+            if default:
+                self._case = self.DEFAULT_CASE
+                self._filter = self.DEFAULT_FILTER
+                self._for = self.DEFAULT_FOR
+                return
+            if 'case' not in self._tag:
+                self._case = self.DEFAULT_CASE
+            else: self._case = self._tag['case']
+            if 'filter' not in self._tag:
+                self._filter = self.DEFAULT_FILTER
+            else: self._filter = self._tag['filter']
+            if 'for' not in self._tag:
+                self._for = self.DEFAULT_FOR
+            if self._case not in self.VALID_CASE:
+                log.error('bad case value for %s' % self._tag['name'])
+                self._case = self.DEFAULT_CASE
+            if self._filter not in self.VALID_FILTER:
+                log.error('bad filter value for %s' % self._tag['name'])
+                self._filter = self.DEFAULT_FILTER
+            if self._for == 'all':
+                return
+            else:
+                for kv in self._tag['for']:
+                    for name in kv:
+                        r = ParseRequest(list( \
+                        chain.from_iterable(   \
+                        [[name],kv[name].split()])))
+                        self._for.append({name : r})
+
+    if os.name == 'posix':
+        h = os.path.expanduser('~')
+        if os.path.exists('{0}/.config/madodl/config.yml'.format(h)):
+            c = '{0}/.config/madodl/config.yml'.format(h)
+        elif os.path.exists('{0}/.madodl/config.yml'.format(h)):
+            c = '{0}/.madodl/config.yml'.format(h)
+        elif os.path.exists('{0}/.madodl.yml'.format(h)):
+            c = '{0}/.madodl.yml'.format(h)
+        else:
+            log.warning('log file not found. using defaults.')
+    elif os.name == 'windows': pass
+    else:
+        log.warning('madodl doesn`t current support a config file on your OS. '\
+                    'Using defaults.')
+    if not c:
+        return
+    with open(c) as cf:
+        try:
+            yh = yaml.safe_load(cf)
+            if 'tags' in yh:
+                for t in yh['tags']:
+                    alltags.append(TagFilter(t))
+        except yaml.YAMLError as e:
+            log.error('config file error: %s' % str(e))
+
 VERSION = '0.1.0'
+alltags = []
 #
 # TODO:
 # - Check if a naming scheme is using _only_ chapters without a ch prefix,
@@ -736,7 +824,7 @@ def main():
                                '%(levelname)s: %(message)s')
     cons_hdlr.setFormatter(logfmt)
     log.addHandler(cons_hdlr)
-
+    init_config()
     for m in args.manga:
         name = m[0]
         req = ParseRequest(m)
@@ -803,6 +891,3 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print()
         _('caught signal, exiting...')
-else:
-    sys.stderr.write('madodl.py does not have a public API, and is not ' \
-                     'meant to be called as a module. Use at your own risk.\n')
