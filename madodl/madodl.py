@@ -33,6 +33,9 @@ loc = {
     'SEARCH'   : '/search?q='         ,
 }
 
+# emulate struct
+class Struct: pass
+
 def die(lvl, msg):
     if lvl:
       getattr(log, lvl.lower())(msg)
@@ -178,9 +181,6 @@ class ParseCommon:
                     self._idx += 1
             else: break
             self._idx += 1
-
-    #def __repr__(self):
-    #    pass #return ''
 
 class ParseFile(ParseCommon):
     '''An inflexible title parser.
@@ -413,9 +413,6 @@ class ParseFile(ParseCommon):
         self._vols = sorted(set(self._vols))
         self._chps = sorted(set(self._chps))
 
-    #def __repr__(self):
-    #    pass #print('%s\n\t%s %s' % (self._f, self._vols, self._chps))
-
 class ParseRequest(ParseCommon):
     ''' ADDME '''
 
@@ -520,9 +517,6 @@ class ParseRequest(ParseCommon):
             self._vols = sorted(set(self._vols))
             self._chps = sorted(set(self._chps))
 
-    #def __repr__(self):
-    #    pass #print(self._vols, self._chps)
-
 class ParseQuery(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
@@ -566,9 +560,6 @@ class ParseQuery(HTMLParser):
                         self.results[-1][1] += data
                     else:
                         self.results.append([self.href,data])
-
-    #def __repr__(self):
-    #    pass #print(self.resultnum, self.results)
 
 def create_nwo_path(name):
     '''Create the exact path that the manga `name` should be in.
@@ -687,9 +678,13 @@ def _(msg):
     if not silent:
         print('%s: %s' % (os.path.basename(__file__), msg))
 
+# global config struct
+gconf = Struct()
+
 def init_config():
     c = None
-    global alltags
+    alltags = []
+    global gconf
     class TagFilter:
         VALID_CASE = (
             'lower' ,
@@ -742,6 +737,20 @@ def init_config():
                         [[name],kv[name].split()])))
                         self._for.append({name : r})
 
+    def set_simple_opt(yh, opt, vals, default):
+        if opt in yh:
+            if not yh[opt]:
+               setattr(gconf, '_'+opt, default)
+            elif default is None and not vals:
+                setattr(gconf, '_'+opt, yh[opt])
+            elif yh[opt] in vals:
+                setattr(gconf, '_'+opt, yh[opt])
+            else:
+                log.error('bad config value for %s' % opt)
+                setattr(gconf, '_'+opt, default)
+        else:
+            setattr(gconf, '_'+opt, default)
+
     if os.name == 'posix':
         h = os.path.expanduser('~')
         if os.path.exists('{0}/.config/madodl/config.yml'.format(h)):
@@ -764,11 +773,27 @@ def init_config():
             if 'tags' in yh:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
+            gconf._alltags = alltags
+            binopt = (True, False)
+            set_simple_opt(yh, 'no_output', binopt, False)
+            set_simple_opt(yh, 'logfile', None, None)
+            if gconf._logfile:
+                set_simple_opt(yh, 'loglevel', ('verbose', 'debug', 'all'), \
+                               'verbose')
+            else: gconf._loglevel = None
+            set_simple_opt(yh, 'usecache', binopt, False)
+            if gconf._usecache:
+                set_simple_opt(yh, 'cachefile', None, \
+                           os.path.join(h, '.cache', 'madodl', 'files.json'))
+            else: gconf._cachefile = None
+            set_simple_opt(yh, 'user', None, None)
+            if gconf._user:
+                set_simple_opt(yh, 'pass', None, None)
+            else: gconf._pass = None
         except yaml.YAMLError as e:
             log.error('config file error: %s' % str(e))
 
 VERSION = '0.1.0'
-alltags = []
 #
 # TODO:
 # - Check if a naming scheme is using _only_ chapters without a ch prefix,
@@ -824,7 +849,9 @@ def main():
                                '%(levelname)s: %(message)s')
     cons_hdlr.setFormatter(logfmt)
     log.addHandler(cons_hdlr)
+
     init_config()
+
     for m in args.manga:
         name = m[0]
         req = ParseRequest(m)
