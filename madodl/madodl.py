@@ -678,6 +678,52 @@ def _(msg):
     if not silent:
         print('%s: %s' % (os.path.basename(__file__), msg))
 
+def init_args():
+    args_parser = \
+    argparse.ArgumentParser(description='Download manga from madokami.',\
+                            usage='%(prog)s [-dhsv] [-p ident val ...] '\
+                                            '-m manga '                 \
+                                            '[volume(s)] [chapter(s)] ...')
+    args_parser.add_argument('-d', action='store_true', dest='debug', \
+                             help='print debugging messages')
+    args_parser.add_argument('-s', action='store_true', dest='silent', \
+                             help='silence message output')
+    args_parser.add_argument('-v', action='store_true', dest='verbose', \
+                             help='print verbose messages')
+    args_parser.add_argument('-V', '--version', action='version',
+                             version='madodl ' + VERSION)
+    args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
+                             required=True,                                  \
+                             metavar=('manga', 'volume(s) chapter(s)'),      \
+                             help='''
+                                  The name of the manga to download.
+                                  If only the manga title is given, all manga
+                                  under this name are downloaded. otherwise, -m
+                                  takes a list of volumes and/or a list of
+                                  chapters to download.
+                                  ''')
+    args = args_parser.parse_args()
+    if args.silent:
+        loglvl = logging.CRITICAL
+    elif args.debug:
+        loglvl = logging.DEBUG
+    elif args.verbose:
+        loglvl = logging.INFO
+    else:
+        loglvl = logging.ERROR
+    global log, silent
+    silent = args.silent
+    log = logging.getLogger('stream_logger')
+    log.setLevel(loglvl)
+    cons_hdlr = logging.StreamHandler()
+    cons_hdlr.setLevel(loglvl)
+    logfmt = logging.Formatter('%(filename)s: %(funcName)s(): ' \
+                               '%(levelname)s: %(message)s')
+    cons_hdlr.setFormatter(logfmt)
+    log.addHandler(cons_hdlr)
+
+    return args
+
 # global config struct
 gconf = Struct()
 
@@ -793,6 +839,69 @@ def init_config():
         except yaml.YAMLError as e:
             log.error('config file error: %s' % str(e))
 
+def main_loop(manga_list):
+    global compc, compv
+    for m in manga_list:
+            name = m[0]
+            req = ParseRequest(m)
+            #jsonfh = curl_json_list('f.json', True)
+            sout = search_query(name).getvalue().decode()
+            qp = ParseQuery()
+            qp.feed(sout)
+            # FIXME:
+            # this is a temporary workaround to
+            # filter out non-manga results until
+            # madokami allows for this granularity itself.
+            qp.mresultnum = 0
+            qp.mresults = []
+            for url, r in qp.results:
+                if r.startswith('/Manga') and r.count('/') >= 5:
+                    qp.mresults.append([url,r])
+                    qp.mresultnum += 1
+            if qp.mresultnum == 0:
+                die('error', 'manga not found')
+            if qp.mresultnum > 1:
+                print('Multiple matches found. Please choose from the selection '\
+                      'below:\n')
+                i = 1
+                for url, f in qp.mresults:
+                    print(str(i)+':', os.path.basename(f))
+                    i += 1
+                print()
+                while 1:
+                    try:
+                        ch = int(input('choice > '))
+                        if ch in range(1, i): break
+                        print('Pick a number between 1 and %d' % (i-1))
+                    except ValueError:
+                        print('Invalid input.')
+                m = qp.mresults[ch-1][0]
+            else:
+                m = qp.mresults[0][0]
+                _('one match found: %s' % os.path.basename(qp.mresults[0][1]))
+            sout = search_exact(m, True).getvalue().decode()
+            log.info('\n-----\n'+sout+'-----')
+            compv, compc, allf, compfile = \
+            walk_thru_listing(req, sout)
+            missv = str([v for v in req._vols if v not in compv]).strip('[]')
+            missc = str([c for c in req._chps if c not in compc]).strip('[]')
+            if missv:
+                _("couldn't find vol(s): " + missv)
+            if missc:
+                _("couldn't find chp(s): " + missc)
+            if compfile:
+                _('downloading complete archive `%s`' % compfile)
+            elif compv or compc:
+                _('downloading volume/chapters...')
+                for f,v,c in allf:
+                    sys.stdout.write('\rcurrent - %s' % f)
+                    # curl file ...
+                print()
+            else:
+                _('could not find requested volume/chapters.')
+
+
+
 VERSION = '0.1.0'
 #
 # TODO:
@@ -806,115 +915,14 @@ VERSION = '0.1.0'
 # - match filtering
 #
 def main():
-
-    args_parser = \
-    argparse.ArgumentParser(description='Download manga from madokami.',\
-                            usage='%(prog)s [-dhsv] [-p ident val ...] '\
-                                            '-m manga '                 \
-                                            '[volume(s)] [chapter(s)] ...')
-    args_parser.add_argument('-d', action='store_true', dest='debug', \
-                             help='print debugging messages')
-    args_parser.add_argument('-s', action='store_true', dest='silent', \
-                             help='silence message output')
-    args_parser.add_argument('-v', action='store_true', dest='verbose', \
-                             help='print verbose messages')
-    args_parser.add_argument('-V', '--version', action='version',
-                             version='madodl ' + VERSION)
-    args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
-                             required=True,                                  \
-                             metavar=('manga', 'volume(s) chapter(s)'),      \
-                             help='''
-                                  The name of the manga to download.
-                                  If only the manga title is given, all manga
-                                  under this name are downloaded. otherwise, -m
-                                  takes a list of volumes and/or a list of
-                                  chapters to download.
-                                  ''')
-    args = args_parser.parse_args()
-    if args.silent:
-        loglvl = logging.CRITICAL
-    elif args.debug:
-        loglvl = logging.DEBUG
-    elif args.verbose:
-        loglvl = logging.INFO
-    else:
-        loglvl = logging.ERROR
-    global log, silent, compv, compc
-    silent = args.silent
-    log = logging.getLogger('stream_logger')
-    log.setLevel(loglvl)
-    cons_hdlr = logging.StreamHandler()
-    cons_hdlr.setLevel(loglvl)
-    logfmt = logging.Formatter('%(filename)s: %(funcName)s(): ' \
-                               '%(levelname)s: %(message)s')
-    cons_hdlr.setFormatter(logfmt)
-    log.addHandler(cons_hdlr)
-
+    args = init_args()
     init_config()
-
-    for m in args.manga:
-        name = m[0]
-        req = ParseRequest(m)
-        #jsonfh = curl_json_list('f.json', True)
-        sout = search_query(name).getvalue().decode()
-        qp = ParseQuery()
-        qp.feed(sout)
-        # FIXME:
-        # this is a temporary workaround to
-        # filter out non-manga results until
-        # madokami allows for this granularity itself.
-        qp.mresultnum = 0
-        qp.mresults = []
-        for url, r in qp.results:
-            if r.startswith('/Manga') and r.count('/') >= 5:
-                qp.mresults.append([url,r])
-                qp.mresultnum += 1
-        if qp.mresultnum == 0:
-            die('error', 'manga not found')
-        if qp.mresultnum > 1:
-            print('Multiple matches found. Please choose from the selection '\
-                  'below:\n')
-            i = 1
-            for url, f in qp.mresults:
-                print(str(i)+':', os.path.basename(f))
-                i += 1
-            print()
-            while 1:
-                try:
-                    ch = int(input('choice > '))
-                    if ch in range(1, i): break
-                    print('Pick a number between 1 and %d' % (i-1))
-                except ValueError:
-                    print('Invalid input.')
-            m = qp.mresults[ch-1][0]
-        else:
-            m = qp.mresults[0][0]
-            _('one match found: %s' % os.path.basename(qp.mresults[0][1]))
-        sout = search_exact(m, True).getvalue().decode()
-        log.info('\n-----\n'+sout+'-----')
-        compv, compc, allf, compfile = \
-        walk_thru_listing(req, sout)
-        missv = str([v for v in req._vols if v not in compv]).strip('[]')
-        missc = str([c for c in req._chps if c not in compc]).strip('[]')
-        if missv:
-            _("couldn't find vol(s): " + missv)
-        if missc:
-            _("couldn't find chp(s): " + missc)
-        if compfile:
-            _('downloading complete archive `%s`' % compfile)
-        elif compv or compc:
-            _('downloading volume/chapters...')
-            for f,v,c in allf:
-                sys.stdout.write('\rcurrent - %s' % f)
-                # curl file ...
-            print()
-        else:
-            _('could not find requested volume/chapters.')
-
-    return 0
+    ret = main_loop(args.manga)
+    return ret
 
 if __name__ == '__main__':
-    try: main()
+    try:
+        sys.exit(main())
     except KeyboardInterrupt:
         print()
         _('caught signal, exiting...')
