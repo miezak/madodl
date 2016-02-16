@@ -59,6 +59,7 @@ def curl_common_init(buf):
     handle.setopt(pycurl.WRITEDATA, buf)
     handle.setopt(pycurl.HEADERFUNCTION, curl_hdr)
     handle.setopt(pycurl.DEBUGFUNCTION, curl_debug)
+    handle.setopt(pycurl.USERPWD, '%s:%s' % (gconf._user, gconf._pass))
     handle.setopt(pycurl.FOLLOWLOCATION, True)
     handle.setopt(pycurl.VERBOSE, True)
     return handle
@@ -88,7 +89,19 @@ def curl_json_list(fname, isf=False):
     c.perform()
     c.close()
 
-def curl_url(url):
+def curl_to_file(fname):
+    with open(os.path.join(gconf._outdir, fname), 'wb') as fh:
+        c = curl_common_init(fh)
+        c.setopt(c.URL, os.path.join(gconf._cururl, \
+                 urllib.parse.quote(fname)))
+        try: c.perform()
+        except c.error:
+            fh.truncate()
+            print() # XXX
+            die('error', 'HTTP response code %d' % c.getinfo(c.RESPONSE_CODE))
+        c.close()
+
+def curl_to_buf(url):
     buf = BytesIO()
     c = curl_common_init(buf)
     c.setopt(c.URL, url)
@@ -618,13 +631,15 @@ def search_exact(name='',ml=False):
     c.setopt(c.PORT, loc['FTPPORT'])
     ml = loc['MLOC'] if not ml else ''
     log.info('ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
+    gconf._cururl = \
+    os.path.join('https://', loc['DOMAIN'], ml, path) + name
     c.setopt(c.URL, 'ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
     c.perform()
     c.close()
     return buf
 
 def search_query(name=''):
-    return curl_url('https://'+loc['DOMAIN']+loc['SEARCH']+name)
+    return curl_to_buf('https://'+loc['DOMAIN']+loc['SEARCH']+name)
 
 def rm_req_elems(req, comp):
     for n in comp:
@@ -633,7 +648,7 @@ def rm_req_elems(req, comp):
 
 def apply_tag_filters(f, title, cv, cc):
     if not f._tag:
-        return False
+        return True
     tlow = [t.lower() for t in f._tag]
     titlel = title.lower()
     for t in gconf._alltags:
@@ -751,11 +766,24 @@ def _(msg):
         print('%s: %s' % (os.path.basename(__file__), msg))
 
 def init_args():
+
+    def output_file(f):
+        if not os.path.isdir(f):
+            raise argparse.ArgumentError('%s is not a directory' % f)
+        if not os.access(f, os.R_OK | os.W_OK | os.X_OK):
+            raise argparse.ArgumentTypeError( \
+                'Insufficient permissions to write to %s directory.' % f)
+        if f[-1] != '/':
+            f += '/'
+
+        return f
+
     args_parser = \
-    argparse.ArgumentParser(description='Download manga from madokami.',\
-                            usage='%(prog)s [-dhsv] [-p ident val ...] '\
-                                            '-m manga '                 \
-                                            '[volume(s)] [chapter(s)] ...')
+    argparse.ArgumentParser(description='Download manga from madokami.',   \
+                            usage='%(prog)s [-dhsv] [-p ident val ...] '   \
+                                            '-m manga '                    \
+                                            '[volume(s)] [chapter(s)] ... '\
+                                            '[-o out-dir]')
     args_parser.add_argument('-d', action='store_true', dest='debug', \
                              help='print debugging messages')
     args_parser.add_argument('-s', action='store_true', dest='silent', \
@@ -774,6 +802,8 @@ def init_args():
                                   takes a list of volumes and/or a list of
                                   chapters to download.
                                   ''')
+    args_parser.add_argument('-o', nargs=1, type=output_file, dest='outdir', \
+                             help='directory to save files to')
     args = args_parser.parse_args()
     if args.silent:
         loglvl = logging.CRITICAL
@@ -917,6 +947,7 @@ def init_config():
                 set_simple_opt(yh, 'cachefile', None, \
                            os.path.join(h, '.cache', 'madodl', 'files.json'))
             else: gconf._cachefile = None
+            set_simple_opt(yh, 'default_outdir', None, os.getcwd())
             set_simple_opt(yh, 'user', None, None)
             if gconf._user:
                 set_simple_opt(yh, 'pass', None, None)
@@ -982,14 +1013,14 @@ def main_loop(manga_list):
                 _('downloading volume/chapters...')
                 for f,v,c in allf:
                     sys.stdout.write('\rcurrent - %s' % f)
-                    # curl file ...
+                    curl_to_file(f)
                 print()
             else:
                 _('could not find requested volume/chapters.')
 
 
 
-VERSION = '0.1.0'
+VERSION = '0.1.0a'
 #
 # TODO:
 # - Check if a naming scheme is using _only_ chapters without a ch prefix,
@@ -1000,10 +1031,15 @@ VERSION = '0.1.0'
 #   the only file in the directory)
 # - handle sub-directories in file listing
 # - match filtering
+# - possibly use curses for terminal output
 #
 def main():
     args = init_args()
     init_config()
+    if args.outdir:
+        gconf._outdir = args.outdir[0]
+    else:
+        gconf._outdir = gconf._default_outdir
     ret = main_loop(args.manga)
     return ret
 
