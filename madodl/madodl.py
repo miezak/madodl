@@ -189,11 +189,13 @@ class ParseFile(ParseCommon):
        that there will be a volume/chapter number somewhere
        in the filename.
     '''
-    def __init__(self, f):
+    def __init__(self, f, title):
         if not f:
             die('File parameter is empty!')
         ParseCommon.__init__(self)
         self._f = f
+        self._tag = []
+        self._title = ''
         # Token abbreviations:
         # EXT -> Extension
         # GRB -> Group Beginning
@@ -206,6 +208,7 @@ class ParseFile(ParseCommon):
         # PLT -> Pilot
         # PRL -> Prolog
         # PRE -> Prelude
+        # PRO -> Prototype
         # OMK -> Omake
         # NUM -> Number
         # COM -> Comma Separator
@@ -239,6 +242,7 @@ class ParseFile(ParseCommon):
             ('PLT', r'pilot')     ,
             ('PRL', r'prologu?e') ,
             ('PRE', r'prelude')   ,
+            ('PRO', r'prototype') ,
             ('OMK', r'''(?x)
                         \+?(?=(-|_|\.|\s+)*)
                         (omake|extra|bonus|special)
@@ -342,6 +346,7 @@ class ParseFile(ParseCommon):
                 self.eat_delim()
                 if self.cur_tok_typ() != 'NUM':
                     self.regex_mismatch('DAT', 'COM', comidx)
+                    continue
                 comval = self.cur_tok_val()
                 self.push_to_last(comval)
                 self.eat_delim(True)
@@ -393,6 +398,29 @@ class ParseFile(ParseCommon):
                 self.other = t
             elif t == 'ALL':
                 self._all = True
+            elif t == 'GRB':
+                self._idx += 1
+                if self.cur_tok_typ() not in ('VOL', 'CHP', 'OMK', \
+                                              'PLT', 'PRE', 'PRL',
+                                              'ART'):
+                    if self.cur_tok_typ() == 'NUM' and \
+                       self.get_tok_typ(self._idx+1) != 'DAT':
+                        continue
+                    tmptag = ''
+                    while self.cur_tok_typ() not in ('GRE', None):
+                        tmptag += str(self.cur_tok_val())
+                        self._idx += 1
+                    if self.cur_tok_val() == None:
+                        die('BUG: tag matching couldn`t find GRE')
+                    if tmptag[:len(title)].lower().strip() == title.lower():
+                        if self.get_tok_typ(self._idx-1) in \
+                            ('PLT', 'PRE', 'PRO', 'PRL', 'ART', 'OMK'):
+                            continue # non-group tag with title in text
+                    self._tag.append(tmptag)
+            elif t == 'DAT':
+                self._title += self.cur_tok_val()
+                if self.get_tok_val(self._idx+1) == ' ':
+                    self._title += ' '
 
             self._idx += 1
 
@@ -409,6 +437,8 @@ class ParseFile(ParseCommon):
                 # assuming chp
                 for n in sorted(wildnums):
                     self._chps.append(n)
+
+        self._title = self._title.strip()
 
         self._vols = sorted(set(self._vols))
         self._chps = sorted(set(self._chps))
@@ -601,11 +631,50 @@ def rm_req_elems(req, comp):
         if n in req:
             req.remove(n)
 
-def walk_thru_listing(req, dir_ls):
+def apply_tag_filters(f, title, cv, cc):
+    if not f._tag:
+        return False
+    tlow = [t.lower() for t in f._tag]
+    titlel = title.lower()
+    for t in gconf._alltags:
+        if t._for != 'all':
+            for d in t._for:
+                for k in d:
+                    if titlel == k.lower():
+                        break
+            else: continue
+            for v in f._vols:
+                if v in cv:
+                    break
+            else: continue
+            for c in f._chps:
+                if c in cc:
+                    break
+            else: continue
+        #print('N',t._name, tlow)
+        if t._name.lower() in tlow:
+            if (t._case == 'exact' and t._name not in f._tag) or \
+               (t._case == 'upper' and t._name not in \
+                                       [t.upper() for t in f._tag]):
+                return False
+            curt = t._name.lower()
+            if t._filter == 'only' and curt not in tlow:
+                del f
+                return False
+            if t._filter == 'out' and curt in tlow:
+                del f
+                return False
+            if t._filter == 'prefer':
+                pass # ADDME
+
+    return True
+
+def walk_thru_listing(req, title, dir_ls):
     '''Walk through FTP directory listing and extract requested data.
 
        Parameters:
        req - User requested files.
+       title - Title of the series requested.
        dir_ls - FTP directory listing.
 
        Returns a tuple of three lists and one str.
@@ -625,7 +694,10 @@ def walk_thru_listing(req, dir_ls):
         # handle this in a more fail-safe manner.
         if f == 'Viz Releases':
             continue # auto-uploaded dir
-        fo = ParseFile(f)
+        fo = ParseFile(f, title)
+        if not apply_tag_filters(fo, title, compv, compc):
+            log.info('** filtered out ' + fo._f)
+            continue
         vq = [] ; cq = []
         apnd = False
         if req._all:
@@ -731,6 +803,16 @@ def init_config():
     c = None
     alltags = []
     global gconf
+    VALID_OPTS = (
+        'tags',
+        'no_output',
+        'logfile',
+        'loglevel',
+        'usecache',
+        'cachefile',
+        'user',
+        'pass',
+    )
     class TagFilter:
         VALID_CASE = (
             'lower' ,
@@ -816,6 +898,9 @@ def init_config():
     with open(c) as cf:
         try:
             yh = yaml.safe_load(cf)
+            for opt in yh.keys():
+                if opt not in VALID_OPTS:
+                    raise RuntimeError('bad option %s in config file' % opt)
             if 'tags' in yh:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
@@ -861,8 +946,8 @@ def main_loop(manga_list):
             if qp.mresultnum == 0:
                 die('error', 'manga not found')
             if qp.mresultnum > 1:
-                print('Multiple matches found. Please choose from the selection '\
-                      'below:\n')
+                print('Multiple matches found. Please choose from the '\
+                      'selection below:\n')
                 i = 1
                 for url, f in qp.mresults:
                     print(str(i)+':', os.path.basename(f))
@@ -876,13 +961,15 @@ def main_loop(manga_list):
                     except ValueError:
                         print('Invalid input.')
                 m = qp.mresults[ch-1][0]
+                title = os.path.basename(qp.mresults[ch-1][1])
             else:
                 m = qp.mresults[0][0]
-                _('one match found: %s' % os.path.basename(qp.mresults[0][1]))
+                title = os.path.basename(qp.mresults[0][1])
+                _('one match found: %s' % title)
             sout = search_exact(m, True).getvalue().decode()
             log.info('\n-----\n'+sout+'-----')
             compv, compc, allf, compfile = \
-            walk_thru_listing(req, sout)
+            walk_thru_listing(req, title, sout)
             missv = str([v for v in req._vols if v not in compv]).strip('[]')
             missc = str([c for c in req._chps if c not in compc]).strip('[]')
             if missv:
