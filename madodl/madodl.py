@@ -4,7 +4,6 @@ import os, sys
 import re
 from io import BytesIO
 from html.parser import HTMLParser
-from time import sleep
 from itertools import chain
 import urllib.parse
 import argparse
@@ -529,23 +528,21 @@ class ParseRequest(ParseCommon):
                     if self._idx == len(self._alltoks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
                             raise RuntimeError('bad range for %s' % what)
-                        else: break
+                        else:
+                            self.push_to_last(self.ALL)
+                            break
                     if ((self.get_tok_typ(self._idx-1) != 'NUM' and \
                          self.get_tok_typ(self._idx+1) != 'NUM') or \
                          self.get_tok_typ(self._idx+1) == 'COM'):
                         raise RuntimeError('bad range for %s' % what)
-                    if self.get_tok_typ(self._idx+1) != 'NUM':
-                        self.push_to_last(float(val))
-                        self.push_to_last(self.ALL)
-                    else:
-                        st = float(self.get_tok_val(self._idx-1))
-                        self.push_to_last(st)
-                        st = int(st) + 1
-                        end = float(self.get_tok_val(self._idx+1))
-                        for n in range(st, int(end)+1):
-                            self.push_to_last(float(n))
-                        if end % 1:
-                            self.push_to_last(end)
+                    st = float(self.get_tok_val(self._idx-1))
+                    self.push_to_last(st)
+                    st = int(st) + 1
+                    end = float(self.get_tok_val(self._idx+1))
+                    for n in range(st, int(end)+1):
+                        self.push_to_last(float(n))
+                    if end % 1:
+                        self.push_to_last(end)
                 elif typ == 'COM':
                     if self._idx == len(self._alltoks)-1 or \
                        self._alltoks[self._idx+1]['typ'] != 'NUM':
@@ -702,6 +699,14 @@ def walk_thru_listing(req, title, dir_ls):
     compc = []
     allf = []
     compfile = None
+    if req._vols and req._vols[-1] == req.ALL:
+        oerng_v = True
+        oest_v = req._vols[-2]
+    else: oerng_v = False
+    if req._chps and req._chps[-1] == req.ALL:
+        oerng_c = True
+        oest_c = req._chps[-2]
+    else: oerng_c = False
     reqv_cpy = req._vols[:]
     reqc_cpy = req._chps[:]
     for f in dir_ls.splitlines():
@@ -715,15 +720,13 @@ def walk_thru_listing(req, title, dir_ls):
             continue
         vq = [] ; cq = []
         apnd = False
-        if req._all:
-            if fo._all:
-                log.info('found complete archive')
-                log.info('file - %s' % f)
-                compfile = f
-                break
-            continue
+        if req._all and fo._all:
+            log.info('found complete archive')
+            log.info('file - %s' % f)
+            compfile = f
+            break
         for fov in fo._vols:
-            if fov in req._vols:
+            if (oerng_v and fov > oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
                     for foc in fo._chps: # then check if vol is split
                         if foc not in compc: # with all new chps
@@ -741,8 +744,12 @@ def walk_thru_listing(req, title, dir_ls):
             for foc in fo._chps:
                 cq.append(foc)
         for reqc in req._chps:
-            if reqc in fo._chps and reqc not in cq:
+            if (req._all or reqc in fo._chps) and reqc not in cq:
                 if len(fo._chps) == 1: # only a single chp
+                    cq.append(reqc)
+        if oerng_c and (fo._chps and min(fo._chps) >= oest_c):
+            for reqc in req._chps:
+                if reqc not in cq:
                     cq.append(reqc)
         if vq:
             log.info('found vol %s ' % str(vq))
@@ -1012,6 +1019,7 @@ def main_loop(manga_list):
             elif compv or compc:
                 _('downloading volume/chapters...')
                 for f,v,c in allf:
+                    #log.info('DL ' + f)
                     sys.stdout.write('\rcurrent - %s' % f)
                     curl_to_file(f)
                 print()
