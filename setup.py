@@ -2,9 +2,13 @@
 
 from setuptools import setup
 
+version = {}
+with open('./madodl/version.py') as vfp:
+    exec(vfp.read(), version) # get __version__
+
 setup(
     name='madodl'   ,
-    version='0.1.0a' ,
+    version=version['__version__'] ,
     description='madokami manga fetcher' ,
     author='miezak'               ,
     author_email='miezak@cock.li' ,

@@ -785,6 +785,10 @@ def init_args():
 
         return f
 
+    version = {}
+    with open('./version.py') as vfp:
+        exec(vfp.read(), version) # get __version__
+
     args_parser = \
     argparse.ArgumentParser(description='Download manga from madokami.',   \
                             usage='%(prog)s [-dhsv] [-p ident val ...] '   \
@@ -798,7 +802,7 @@ def init_args():
     args_parser.add_argument('-v', action='store_true', dest='verbose', \
                              help='print verbose messages')
     args_parser.add_argument('-V', '--version', action='version',
-                             version='madodl ' + VERSION)
+                             version='madodl ' + version['__version__'])
     args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
                              required=True,                                  \
                              metavar=('manga', 'volume(s) chapter(s)'),      \
@@ -1031,7 +1035,6 @@ def main_loop(manga_list):
 
 
 
-VERSION = '0.1.0a'
 #
 # TODO:
 # - Check if a naming scheme is using _only_ chapters without a ch prefix,
