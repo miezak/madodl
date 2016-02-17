@@ -785,9 +785,7 @@ def init_args():
 
         return f
 
-    version = {}
-    with open('./version.py') as vfp:
-        exec(vfp.read(), version) # get __version__
+    from version import __version__
 
     args_parser = \
     argparse.ArgumentParser(description='Download manga from madokami.',   \
@@ -802,7 +800,7 @@ def init_args():
     args_parser.add_argument('-v', action='store_true', dest='verbose', \
                              help='print verbose messages')
     args_parser.add_argument('-V', '--version', action='version',
-                             version='madodl ' + version['__version__'])
+                             version='madodl ' + __version__)
     args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
                              required=True,                                  \
                              metavar=('manga', 'volume(s) chapter(s)'),      \
