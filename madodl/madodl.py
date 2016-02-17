@@ -785,7 +785,7 @@ def init_args():
 
         return f
 
-    from version import __version__
+    from .version import __version__
 
     args_parser = \
     argparse.ArgumentParser(description='Download manga from madokami.',   \
