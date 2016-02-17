@@ -726,7 +726,7 @@ def walk_thru_listing(req, title, dir_ls):
             compfile = f
             break
         for fov in fo._vols:
-            if (oerng_v and fov > oest_v) or req._all or fov in req._vols:
+            if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
                     for foc in fo._chps: # then check if vol is split
                         if foc not in compc: # with all new chps
