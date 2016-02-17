@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='madodl'   ,
-    version='0.1.0' ,
+    version='0.1.0a' ,
     description='madokami manga fetcher' ,
     author='miezak'               ,
     author_email='miezak@cock.li' ,
