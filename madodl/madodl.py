@@ -411,10 +411,10 @@ class ParseFile(ParseCommon):
             elif t == 'ALL':
                 self._all = True
             elif t == 'GRB':
-                self._idx += 1
-                if self.cur_tok_typ() not in ('VOL', 'CHP', 'OMK', \
+                if self.get_tok_typ(self._idx+1) not in ('VOL', 'CHP', 'OMK', \
                                               'PLT', 'PRE', 'PRL',
                                               'ART'):
+                    self._idx += 1
                     if self.cur_tok_typ() == 'NUM' and \
                        self.get_tok_typ(self._idx+1) != 'DAT':
                         continue
@@ -809,8 +809,11 @@ def init_args():
                                   takes a list of volumes and/or a list of
                                   chapters to download.
                                   ''')
-    args_parser.add_argument('-o', nargs=1, type=output_file, dest='outdir', \
+    args_parser.add_argument('-o', type=output_file, dest='outdir', \
+                             metavar='outdir', \
                              help='directory to save files to')
+    args_parser.add_argument('-a', dest='auth', metavar='user:pw',
+                            help='madokami user and password')
     args = args_parser.parse_args()
     if args.silent:
         loglvl = logging.CRITICAL
@@ -1045,9 +1048,14 @@ def main():
     args = init_args()
     init_config()
     if args.outdir:
-        gconf._outdir = args.outdir[0]
+        gconf._outdir = args.outdir
     else:
         gconf._outdir = gconf._default_outdir
+    if args.auth:
+        up = args.auth.split(':', 1)
+        if len(up) == 1 or '' in up:
+            die('error', 'argument -a: bad auth format')
+        gconf._user, gconf._pass = up
     ret = main_loop(args.manga)
     return ret
 
