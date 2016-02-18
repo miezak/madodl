@@ -8,6 +8,7 @@ from itertools import chain
 import urllib.parse
 import argparse
 import logging
+import pkg_resources
 
 try:
     import pycurl
@@ -785,7 +786,10 @@ def init_args():
 
         return f
 
-    from version import __version__
+    try:
+         _version = pkg_resources.get_distribution('madodl').version
+    except pkg_resources.DistributionNotFound:
+        _version = '(local)'
 
     args_parser = \
     argparse.ArgumentParser(description='Download manga from madokami.',   \
@@ -800,7 +804,7 @@ def init_args():
     args_parser.add_argument('-v', action='store_true', dest='verbose', \
                              help='print verbose messages')
     args_parser.add_argument('-V', '--version', action='version',
-                             version='madodl ' + __version__)
+                             version='madodl ' + _version)
     args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
                              required=True,                                  \
                              metavar=('manga', 'volume(s) chapter(s)'),      \

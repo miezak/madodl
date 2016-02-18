@@ -1,0 +1,8 @@
+# since this is a small project, it doesn't
+# hurt to manually include everything
+
+include README
+
+include LICENSE
+
+include madodl/config.yml

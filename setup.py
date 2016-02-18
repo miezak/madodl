@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
-version = {}
-with open('./madodl/version.py') as vfp:
-    exec(vfp.read(), version) # get __version__
+exec(open('madodl/version.py').read()) # get __version__
 
 setup(
-    name='madodl'   ,
-    version=version['__version__'] ,
+    name='madodl'       ,
+    version=__version__ ,
     description='madokami manga fetcher' ,
     author='miezak'               ,
     author_email='miezak@cock.li' ,
@@ -27,7 +25,7 @@ setup(
     ] ,
     keywords='madokami manga' ,
     install_requires=['pycurl', 'pyyaml'] ,
-    packages=['madodl'] ,
+    packages=find_packages() ,
     entry_points={
         'console_scripts' : [
             'madodl=madodl.madodl:main',
