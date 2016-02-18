@@ -2,9 +2,7 @@ madodl
 ======
 
 `madodl` is an operating system independent Python CLI script that downloads
-manga from [madokami](https://manga.madokami.com). It is designed to get pick
-out a series by specifying a range of volumes and/or chapters on the command
-line.
+manga from [madokami](https://manga.madokami.com).
 
 Installing
 ----------
