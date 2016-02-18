@@ -1,7 +1,7 @@
 # since this is a small project, it doesn't
 # hurt to manually include everything
 
-include README
+include README.md
 
 include LICENSE
 
