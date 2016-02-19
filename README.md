@@ -66,14 +66,14 @@ Multiple volumes/chapters can be specified with ranges and commas.
 Some examples:
 
 ```
-# all volumes up to 5
-v-5
+# volumes 1 to 5
+v1-5
 
 # all volumes from 5 to latest volume
 v5-
 
 # volumes 1-5, 7 and 12
-v1-5,6,12
+v1-5,7,12
 
 # half-volumes
 v1-5.5,10.5-12
