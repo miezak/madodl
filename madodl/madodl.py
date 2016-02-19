@@ -11,9 +11,15 @@ import logging
 import pkg_resources
 
 try:
+    import unicurses
+except ImportError:
+    sys.stderr.write('Need UniCurses to use madodl!\n')
+    sys.exit(1)
+
+try:
     import pycurl
 except ImportError:
-    sys.stderr.write('Need pycurl to use madodl!\n')
+    sys.stderr.write('Need pycURL to use madodl!\n')
     sys.exit(1)
 
 try:
@@ -89,16 +95,61 @@ def curl_json_list(fname, isf=False):
     c.perform()
     c.close()
 
+def conv_bytes(bvar):
+    if bvar / 1024**3 >= 1:
+        ret = str(round((bvar / 1024**3), 2)) + ' GB'
+    elif bvar / 1024**2 >= 1:
+        ret = str(round((bvar / 1024**2), 2)) + ' MB'
+    elif bvar / 1024 >= 1:
+        ret = str(round((bvar / 1024), 2)) + ' KB'
+    else:
+        ret = str(bvar) + ' B'
+
+    return ret
+
+def curl_progress(ttdl, tdl, ttul, tul):
+    _time = time.time()
+    # ensure we are printing every 2 sec
+    tdiff = _time - gconf._time
+    if tdiff < 2:
+        return
+    if not gconf._fsz and ttdl:
+        gconf._fsz = conv_bytes(ttdl)
+    gconf._time = _time
+    dlspeed = (tdl - gconf._lastdl) / tdiff
+    dls_conv = conv_bytes(dlspeed) + '/s'
+    tdl_conv = conv_bytes(tdl)
+    # clear line manually since redrawln() isn't
+    # working for me
+    gconf._stdscr.addstr(1, 0, ' '*gconf._COLS)
+    gconf._stdscr.refresh()
+    gconf._stdscr.addstr(1, 0, 'size %s | downloaded %s | speed %s' \
+                     % (gconf._fsz, tdl_conv, dls_conv))
+    gconf._stdscr.refresh()
+    gconf._lastdl = tdl
+
 def curl_to_file(fname):
+    gconf._fsz = 0
+    gconf._time = 0
+    gconf._lastdl = 0
+    # unicurses doesn't seem to add these manually...
+    gconf._LINES, gconf._COLS = unicurses.getmaxyx(gconf._stdscr)
     with open(os.path.join(gconf._outdir, fname), 'wb') as fh:
         c = curl_common_init(fh)
         c.setopt(c.URL, os.path.join(gconf._cururl, \
                  urllib.parse.quote(fname)))
+        c.setopt(c.NOPROGRESS, False)
+        c.setopt(c.XFERINFOFUNCTION, curl_progress)
         try: c.perform()
-        except c.error:
+        except pycurl.error:
             fh.truncate()
-            print() # XXX
-            die('error', 'HTTP response code %d' % c.getinfo(c.RESPONSE_CODE))
+            httpcode = c.getinfo(c.RESPONSE_CODE)
+            if httpcode in (0, 200):
+                return
+            die('error', 'HTTP response code %d' % httpcode)
+        if c.getinfo(c.RESPONSE_CODE) != 200:
+            fh.truncate()
+            die('error', 'HTTP RES %d' % c.getinfo(c.RESPONSE_CODE))
         c.close()
 
 def curl_to_buf(url):
@@ -1027,11 +1078,23 @@ def main_loop(manga_list):
                 _('downloading complete archive `%s`' % compfile)
             elif compv or compc:
                 _('downloading volume/chapters...')
-                for f,v,c in allf:
-                    #log.info('DL ' + f)
-                    sys.stdout.write('\rcurrent - %s' % f)
-                    curl_to_file(f)
-                print()
+                try:
+                    stdscr = unicurses.initscr()
+                    gconf._stdscr = stdscr
+                    unicurses.noecho()
+                    for f,v,c in allf:
+                        #log.info('DL ' + f)
+                        gconf._stdscr.erase()
+                        gconf._stdscr.addstr(0, 0, 'current - %s' % f)
+                        gconf._stdscr.refresh()
+                        curl_to_file(f)
+                except:
+                    raise
+                finally:
+                    unicurses.nocbreak()
+                    gconf._stdscr.keypad(False)
+                    unicurses.echo()
+                    unicurses.endwin()
             else:
                 _('could not find requested volume/chapters.')
 
@@ -1046,8 +1109,6 @@ def main_loop(manga_list):
 # - handle the case where a complete archive has no prefixes (and is probably
 #   the only file in the directory)
 # - handle sub-directories in file listing
-# - match filtering
-# - possibly use curses for terminal output
 #
 def main():
     args = init_args()

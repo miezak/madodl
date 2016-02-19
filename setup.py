@@ -24,7 +24,7 @@ setup(
         'Topic :: Text Processing'                          ,
     ] ,
     keywords='madokami manga' ,
-    install_requires=['pycurl', 'pyyaml'] ,
+    install_requires=['pycurl', 'pyyaml', 'unicurses'] ,
     packages=find_packages() ,
     entry_points={
         'console_scripts' : [

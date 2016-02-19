@@ -11,6 +11,7 @@ Dependencies:
 * >= **python 3.4**
 * **pycURL**
 * **PyYAML**
+* **UniCurses**
 
 #### pip
 
