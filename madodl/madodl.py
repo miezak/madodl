@@ -1033,7 +1033,7 @@ def init_config():
             for opt in yh.keys():
                 if opt not in VALID_OPTS:
                     raise RuntimeError('bad option %s in config file' % opt)
-            if 'tags' in yh:
+            if 'tags' in yh and yh['tags']:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
             gconf._alltags = alltags
