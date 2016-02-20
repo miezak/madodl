@@ -697,7 +697,7 @@ def rm_req_elems(req, comp):
             req.remove(n)
 
 def apply_tag_filters(f, title, cv, cc):
-    if not f._tag:
+    if not f._tag or not gconf._alltags:
         return True
     tlow = [t.lower() for t in f._tag]
     titlel = title.lower()
@@ -1022,6 +1022,9 @@ def init_config():
                     'Using defaults.')
     if not c:
         # XXX check back
+        gconf._user = ''
+        gconf._pass = ''
+        gconf._alltags = ''
         gconf._default_outdir = os.getcwd()
         return
     with open(c) as cf:
