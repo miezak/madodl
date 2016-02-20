@@ -566,17 +566,19 @@ class ParseRequest(ParseCommon):
                         tmpm = min(prev)
                         if tmpv < tmpm:
                             self.set_tok_val(minidx, tmpv)
-                            self.set_cur_tok_val(tmpm)
+                            self.set_tok_val(idx, tmpm)
                             minidx = idx
                             prev.append(tmpv)
                     else:
-                        prev.append(val)
+                        prev.append(self.get_tok_val(idx))
                         minidx = idx
             tokcpy = self._alltoks[:]
-            for self._idx in range(1, len(self._alltoks)):
+            self._idx = idx = 1
+            while idx < len(self._alltoks)+1:
                 typ = self.cur_tok_typ()
                 val = self.cur_tok_val()
                 log.debug(str(typ)+' '+str(val))
+                if typ is None: break
                 if typ == 'RNG':
                     if self._idx == len(self._alltoks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
@@ -588,24 +590,26 @@ class ParseRequest(ParseCommon):
                          self.get_tok_typ(self._idx+1) != 'NUM') or \
                          self.get_tok_typ(self._idx+1) == 'COM'):
                         raise RuntimeError('bad range for %s' % what)
-                    st = float(self.get_tok_val(self._idx-1))
-                    self.push_to_last(st)
-                    st = int(st) + 1
+                    st = int(self.get_tok_val(self._idx-1))+1
                     end = float(self.get_tok_val(self._idx+1))
                     for n in range(st, int(end)+1):
                         self.push_to_last(float(n))
                     if end % 1:
                         self.push_to_last(end)
+                    self._idx += 1
                 elif typ == 'COM':
                     if self._idx == len(self._alltoks)-1 or \
                        self._alltoks[self._idx+1]['typ'] != 'NUM':
                         log.warning('Extraneous comma detected. Removing.')
-                        diff = len(self._alltoks) - len(tokcpy)
+                        del self._alltoks[self._idx]
+                        continue
                     else:
                         self._idx += 1
                         self.push_to_last(float(self.cur_tok_val()))
                 elif typ == 'NUM':
                     self.push_to_last(float(self.cur_tok_val()))
+
+                self._idx += 1
 
             self._vols = sorted(set(self._vols))
             self._chps = sorted(set(self._chps))
