@@ -796,6 +796,29 @@ def walk_thru_listing(req, title, dir_ls):
         if apnd:
             for foc in fo._chps:
                 cq.append(foc)
+        if len(req._chps) > 1 and len(fo._chps) == len(req._chps) \
+           and req._chps[0] == fo._chps[0]:
+            rmax = None
+            fomax = None
+            last = req._chps[0]
+            for i in range(1, len(req._chps)):
+                if req._chps[i] == last+1:
+                    rmax = req._chps[i]
+                else: break
+                last = req._chps[i]
+            last = fo._chps[0]
+            for i in range(1, len(fo._chps)):
+                if fo._chps[i] == last+1:
+                    fomax = fo._chps[i]
+                else: break
+                last = fo._chps[i]
+            if rmax is None or fomax is None or rmax != fomax:
+                pass
+            else:
+                for i in req._chps:
+                    if i <= rmax:
+                        cq.append(float(i))
+                    else: break
         for reqc in req._chps:
             if (req._all or reqc in fo._chps) and reqc not in cq:
                 if len(fo._chps) == 1: # only a single chp
