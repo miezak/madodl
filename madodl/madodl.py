@@ -9,6 +9,7 @@ import urllib.parse
 import argparse
 import logging
 import pkg_resources
+import time
 
 try:
     import unicurses
@@ -145,11 +146,11 @@ def curl_to_file(fname):
             fh.truncate()
             httpcode = c.getinfo(c.RESPONSE_CODE)
             if httpcode in (0, 200):
-                return
-            die('error', 'HTTP response code %d' % httpcode)
+                raise
+            raise RuntimeError('HTTP response code %d' % httpcode)
         if c.getinfo(c.RESPONSE_CODE) != 200:
             fh.truncate()
-            die('error', 'HTTP RES %d' % c.getinfo(c.RESPONSE_CODE))
+            raise RuntimeError('HTTP RES %d' % c.getinfo(c.RESPONSE_CODE))
         c.close()
 
 def curl_to_buf(url):
