@@ -730,7 +730,8 @@ def apply_tag_filters(f, title, cv, cc):
                 del f
                 return False
             if t._filter == 'prefer':
-                pass # ADDME
+                # ADDME
+                log.warning('`prefer` filter not yet implemented.')
 
     return True
 
@@ -1010,7 +1011,12 @@ def init_config():
             c = '{0}/.madodl.yml'.format(h)
         else:
             log.warning('log file not found. using defaults.')
-    elif os.name == 'windows': pass
+    elif os.name == 'windows':
+        h = os.path.expanduser('~')
+        if os.path.exists('{0}/.madodl/config.yml'.format(h)):
+            c = os.path.exists('{0}/.madodl/config.yml'.format(h))
+        else:
+            log.warning('log file not found. using defaults.')
     else:
         log.warning('madodl doesn`t current support a config file on your OS. '\
                     'Using defaults.')
@@ -1121,8 +1127,9 @@ def main_loop(manga_list):
                     unicurses.endwin()
             else:
                 _('could not find requested volume/chapters.')
+                return 1
 
-
+    return 0
 
 #
 # TODO:
