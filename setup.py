@@ -24,7 +24,8 @@ setup(
         'Topic :: Text Processing'                          ,
     ] ,
     keywords='madokami manga' ,
-    install_requires=['pycurl', 'pyyaml', 'unicurses'] ,
+    install_requires=['pycurl', 'pyyaml', 'unicurses>=1.2'] ,
+    dependency_links=['https://github.com/miezak/unicurses/tarball/master#egg=unicurses-1.2']
     packages=find_packages() ,
     entry_points={
         'console_scripts' : [
