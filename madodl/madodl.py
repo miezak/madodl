@@ -1021,6 +1021,8 @@ def init_config():
         log.warning('madodl doesn`t current support a config file on your OS. '\
                     'Using defaults.')
     if not c:
+        # XXX check back
+        gconf._default_outdir = os.getcwd()
         return
     with open(c) as cf:
         try:
