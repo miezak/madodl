@@ -17,13 +17,13 @@ Dependencies:
 
 ```sh
 # globally
-$ sudo pip3 install 'git+https://github.com/miezak/madodl'
+$ sudo pip3 install --process-dependency-links 'git+https://github.com/miezak/madodl'
 
 # locally
-$ pip3 install --user 'git+https://github.com/miezak/madodl'
+$ pip3 install --user --process-dependency-links 'git+https://github.com/miezak/madodl'
 
 # download the latest development version
-$ pip3 install --user 'https://github.com/miezak/madodl/archive/devel.zip'
+$ pip3 install --user --process-dependency-links 'https://github.com/miezak/madodl/archive/devel.zip'
 ```
 
 #### Source
