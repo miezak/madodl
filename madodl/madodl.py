@@ -10,6 +10,7 @@ import argparse
 import logging
 import pkg_resources
 import time
+import json
 
 try:
     import unicurses
@@ -43,9 +44,9 @@ loc = {
 # emulate struct
 class Struct: pass
 
-def die(lvl, msg):
+def die(msg, lvl='error', **kwargs):
     if lvl:
-      getattr(log, lvl.lower())(msg)
+      getattr(log, lvl.lower())(msg, **kwargs)
     sys.exit(1)
 
 hdrs = {}
@@ -85,7 +86,7 @@ def curl_json_list(fname, isf=False):
             f = open(fname, 'wb')
             c = curl_common_init(f)
         except OSError:
-            die('error', "couldn't open file for writing")
+            die("couldn't open file for writing")
     else:
         c = curl_common_init(fname)
     #c.setopt(c.ACCEPT_ENCODING, 'gzip')
@@ -324,8 +325,8 @@ class ParseFile(ParseCommon):
             self._alltoks.append({'typ' : typ, 'val' : val})
 
         if self._alltoks[-1]['typ'] != 'EXT':
-            die('FATAL', 'Encountered a file without an extension, which is '\
-                         'not currently supported. Bailing.')
+            die('Encountered a file without an extension, which is '\
+                         'not currently supported. Bailing.', lvl='FATAL')
 
         for t in self._alltoks:
             if t['typ'] == 'NUM':
@@ -513,7 +514,7 @@ class ParseRequest(ParseCommon):
 
     def __init__(self, req):
         ParseCommon.__init__(self)
-        self.name = req[0]
+        self._name = req[0]
         del req[0]
         if not req:
             self._all = True
@@ -668,7 +669,7 @@ def create_nwo_path(name):
        name - the name of the manga to convert to NWO format.
     '''
     if not name:
-        die('error', 'need a name with at least one character!')
+        die('need a name with at least one character!')
         return None
     name = re.sub(r'^(the|an?) ', '', name, flags=re.I)
     name = name.upper()
@@ -849,9 +850,9 @@ def walk_thru_listing(req, title, dir_ls):
     compc = sorted(compc)
     return (compv, compc, allf, compfile)
 
-def _(msg):
+def _(msg, file=sys.stderr, **kwargs):
     if not silent:
-        print('%s: %s' % (os.path.basename(__file__), msg))
+        print('%s: %s' % (os.path.basename(__file__), msg), file=file, **kwargs)
 
 def init_args():
 
@@ -1005,8 +1006,9 @@ def init_config():
         else:
             setattr(gconf, '_'+opt, default)
 
+    h = os.path.expanduser('~')
+    gconf._home = h
     if os.name == 'posix':
-        h = os.path.expanduser('~')
         if os.path.exists('{0}/.config/madodl/config.yml'.format(h)):
             c = '{0}/.config/madodl/config.yml'.format(h)
         elif os.path.exists('{0}/.madodl/config.yml'.format(h)):
@@ -1015,10 +1017,9 @@ def init_config():
             c = '{0}/.madodl.yml'.format(h)
         else:
             log.warning('log file not found. using defaults.')
-    elif os.name == 'windows':
-        h = os.path.expanduser('~')
-        if os.path.exists('{0}/.madodl/config.yml'.format(h)):
-            c = os.path.exists('{0}/.madodl/config.yml'.format(h))
+    elif os.name == 'nt':
+        if os.path.exists('{0}\.madodl\config.yml'.format(h)):
+            c = '{0}\.madodl\config.yml'.format(h)
         else:
             log.warning('log file not found. using defaults.')
     else:
@@ -1026,10 +1027,13 @@ def init_config():
                     'Using defaults.')
     if not c:
         # XXX check back
+        # FIXME: these should be None!
         gconf._user = ''
         gconf._pass = ''
         gconf._alltags = ''
         gconf._default_outdir = os.getcwd()
+        gconf._usecache = False
+        gconf._cachefile = None
         return
     with open(c) as cf:
         try:
@@ -1061,50 +1065,92 @@ def init_config():
         except yaml.YAMLError as e:
             log.error('config file error: %s' % str(e))
 
+def get_listing(manga):
+    badret = ('', '')
+    if gconf._usecache:
+        def match_dir():
+            mlow = manga.lower()
+            for c1 in jobj:
+                if c1['name'] == d1:
+                    for c2 in c1['contents']:
+                        if c2['name'] == d2:
+                            for c3 in c2['contents']:
+                                if c3['name'] == d3:
+                                    for t in c3['contents']:
+                                        if t['name'].lower() == mlow:
+                                            return (t['contents'], t['name'])
+                                    else: return None
+                            else: return None
+                    else: return None
+            else: return None
+        jsonloc =                                                   \
+        os.path.join(gconf._home, '.cache', 'madodl', 'files.json') \
+        if not gconf._cachefile else gconf._cachefile
+        jsondirloc = os.path.dirname(jsonloc)
+        if not os.path.exists(jsonloc):
+            os.makedirs(jsondirloc, 0o770, True)
+            curl_json_list(jsonloc, True)
+        assert os.path.exists(jsonloc)
+        d1,d2,d3 = create_nwo_path(manga).split('/')
+        mdir = None
+        with open(jsonloc, errors='surrogateescape') as f:
+            jobj = json.load(f)
+            for o in jobj[0].get('contents'):
+                if o['name'] == 'Manga':
+                    jobj = o['contents'] ; break
+            mdir, title = match_dir() or badret
+            if not mdir:
+                die('manga not found')
+            gconf._cururl = 'https://' + loc['DOMAIN'] + loc['MLOC'] \
+                + d1 + '/' + d2 + '/' + d3 + '/' + title
+            dirls = '\n'.join([f['name'] for f in mdir])
+    else:
+        qout = search_query(manga).getvalue().decode()
+        qp = ParseQuery()
+        qp.feed(qout)
+        # FIXME:
+        # this is a temporary workaround to
+        # filter out non-manga results until
+        # madokami allows for this granularity itself.
+        qp.mresultnum = 0
+        qp.mresults = []
+        for url, r in qp.results:
+            if r.startswith('/Manga') and r.count('/') >= 5:
+                qp.mresults.append([url,r])
+                qp.mresultnum += 1
+        if qp.mresultnum == 0:
+            die('manga not found')
+        if qp.mresultnum > 1:
+            print('Multiple matches found. Please choose from the '\
+                  'selection below:\n')
+            i = 1
+            for url, f in qp.mresults:
+                print(str(i)+':', os.path.basename(f))
+                i += 1
+            print()
+            while 1:
+                try:
+                    ch = int(input('choice > '))
+                    if ch in range(1, i): break
+                    print('Pick a number between 1 and %d' % (i-1))
+                except ValueError:
+                    print('Invalid input.')
+            m = qp.mresults[ch-1][0]
+            title = os.path.basename(qp.mresults[ch-1][1])
+        else:
+            m = qp.mresults[0][0]
+            title = os.path.basename(qp.mresults[0][1])
+            _('one match found: %s' % title)
+        dirls = search_exact(m, True).getvalue().decode()
+
+    log.info('\n-----\n'+dirls+'-----')
+    return (dirls, title)
+
 def main_loop(manga_list):
     global compc, compv
     for m in manga_list:
-            name = m[0]
             req = ParseRequest(m)
-            #jsonfh = curl_json_list('f.json', True)
-            sout = search_query(name).getvalue().decode()
-            qp = ParseQuery()
-            qp.feed(sout)
-            # FIXME:
-            # this is a temporary workaround to
-            # filter out non-manga results until
-            # madokami allows for this granularity itself.
-            qp.mresultnum = 0
-            qp.mresults = []
-            for url, r in qp.results:
-                if r.startswith('/Manga') and r.count('/') >= 5:
-                    qp.mresults.append([url,r])
-                    qp.mresultnum += 1
-            if qp.mresultnum == 0:
-                die('error', 'manga not found')
-            if qp.mresultnum > 1:
-                print('Multiple matches found. Please choose from the '\
-                      'selection below:\n')
-                i = 1
-                for url, f in qp.mresults:
-                    print(str(i)+':', os.path.basename(f))
-                    i += 1
-                print()
-                while 1:
-                    try:
-                        ch = int(input('choice > '))
-                        if ch in range(1, i): break
-                        print('Pick a number between 1 and %d' % (i-1))
-                    except ValueError:
-                        print('Invalid input.')
-                m = qp.mresults[ch-1][0]
-                title = os.path.basename(qp.mresults[ch-1][1])
-            else:
-                m = qp.mresults[0][0]
-                title = os.path.basename(qp.mresults[0][1])
-                _('one match found: %s' % title)
-            sout = search_exact(m, True).getvalue().decode()
-            log.info('\n-----\n'+sout+'-----')
+            sout, title = get_listing(req._name)
             compv, compc, allf, compfile = \
             walk_thru_listing(req, title, sout)
             missv = str([v for v in req._vols if v not in compv]).strip('[]')
@@ -1114,9 +1160,9 @@ def main_loop(manga_list):
             if missc:
                 _("couldn't find chp(s): " + missc)
             if compfile:
-                _('downloading complete archive `%s`' % compfile)
+                _('downloading complete archive `%s`...' % compfile, end='')
             elif compv or compc:
-                _('downloading volume/chapters...')
+                _('downloading volume/chapters...', end='')
                 try:
                     stdscr = unicurses.initscr()
                     gconf._stdscr = stdscr
@@ -1134,6 +1180,7 @@ def main_loop(manga_list):
                     gconf._stdscr.keypad(False)
                     unicurses.echo()
                     unicurses.endwin()
+                print('done', file=sys.stderr)
             else:
                 _('could not find requested volume/chapters.')
                 return 1
@@ -1160,7 +1207,7 @@ def main():
     if args.auth:
         up = args.auth.split(':', 1)
         if len(up) == 1 or '' in up:
-            die('error', 'argument -a: bad auth format')
+            die('argument -a: bad auth format')
         gconf._user, gconf._pass = up
     ret = main_loop(args.manga)
     return ret
