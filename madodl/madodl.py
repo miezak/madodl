@@ -280,6 +280,7 @@ class ParseFile(ParseCommon):
         # DLM -> Delimiter
         # VOL -> Volume
         # CHP -> Chapter
+        # ALL -> Complete Archive
         # ART -> Artbook
         # PLT -> Pilot
         # PRL -> Prolog
@@ -351,7 +352,7 @@ class ParseFile(ParseCommon):
         wildnums = []
         while self._idx < len(self._alltoks):
             t = self.cur_tok_typ()
-            #print(str(self._idx)+' '+t)
+            log.debug(str(self._idx)+' '+t)
             if t == 'VOL':
                 self.last = True
                 if not self.seenvol:
@@ -475,9 +476,9 @@ class ParseFile(ParseCommon):
             elif t == 'ALL':
                 self._all = True
             elif t == 'GRB':
-                if self.get_tok_typ(self._idx+1) not in ('VOL', 'CHP', 'OMK', \
-                                              'PLT', 'PRE', 'PRL',
-                                              'ART'):
+                if self.get_tok_typ(self._idx+1) not in ('VOL', 'CHP', 'ALL', \
+                                              'OMK', 'PLT', 'PRE',            \
+                                              'PRL', 'ART'):
                     self._idx += 1
                     if self.cur_tok_typ() == 'NUM' and \
                        self.get_tok_typ(self._idx+1) != 'DAT':
@@ -789,7 +790,7 @@ def walk_thru_listing(req, title, dir_ls):
             continue
         vq = [] ; cq = []
         apnd = False
-        if req._all and fo._all:
+        if fo._all and req._all:
             log.info('found complete archive')
             log.info('file - %s' % f)
             compfile = f
@@ -1169,20 +1170,26 @@ def main_loop(manga_list):
                 _("couldn't find vol(s): " + missv)
             if missc:
                 _("couldn't find chp(s): " + missc)
-            if compfile:
-                _('downloading complete archive `%s`...' % compfile, end='')
-            elif compv or compc:
-                _('downloading volume/chapters...', end='')
+            if any((compfile, compc, compv)):
                 try:
                     stdscr = unicurses.initscr()
                     gconf._stdscr = stdscr
                     unicurses.noecho()
-                    for f,v,c in allf:
-                        #log.info('DL ' + f)
+                    if compfile:
+                        _('downloading complete archive... ' \
+                            % compfile, end='')
                         gconf._stdscr.erase()
-                        gconf._stdscr.addstr(0, 0, 'current - %s' % f)
+                        gconf._stdscr.addstr(0, 0, compfile)
                         gconf._stdscr.refresh()
-                        curl_to_file(f)
+                        curl_to_file(compfile)
+                    elif compv or compc:
+                        _('downloading volume/chapters... ', end='')
+                        for f,v,c in allf:
+                            #log.info('DL ' + f)
+                            gconf._stdscr.erase()
+                            gconf._stdscr.addstr(0, 0, 'current - %s' % f)
+                            gconf._stdscr.refresh()
+                            curl_to_file(f)
                 except:
                     raise
                 finally:
