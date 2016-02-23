@@ -1114,7 +1114,7 @@ def get_listing(manga):
                 die('manga not found')
             gconf._cururl = 'https://' + loc['DOMAIN'] + loc['MLOC'] \
                 + d1 + '/' + d2 + '/' + d3 + '/' + title
-            dirls = '\n'.join([f['name'] for f in mdir])
+            dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
     else:
         qout = search_query(manga).getvalue().decode()
         qp = ParseQuery()
@@ -1176,8 +1176,7 @@ def main_loop(manga_list):
                     gconf._stdscr = stdscr
                     unicurses.noecho()
                     if compfile:
-                        _('downloading complete archive... ' \
-                            % compfile, end='')
+                        _('downloading complete archive... ', end='')
                         gconf._stdscr.erase()
                         gconf._stdscr.addstr(0, 0, compfile)
                         gconf._stdscr.refresh()
