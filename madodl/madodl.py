@@ -52,6 +52,9 @@ def die(msg, lvl='error', **kwargs):
 hdrs = {}
 def curl_hdr(hdr_line):
     hdr_line = hdr_line.decode('iso-8859-1')
+    if hdr_line[:5] == 'HTTP/':
+        hdrs['retstr'] = re.sub('^[^ ]+ ', '', hdr_line)
+        return
     if ':' not in hdr_line:
         return None
     name, val = hdr_line.split(':', 1)
@@ -130,6 +133,25 @@ def curl_progress(ttdl, tdl, ttul, tul):
     gconf._stdscr.refresh()
     gconf._lastdl = tdl
 
+def check_curl_error(h, fh, exp=False):
+    res = h.getinfo(h.RESPONSE_CODE)
+    if exp:
+        fh.truncate()
+        if res in (0, 200):
+            raise
+        msg = hdrs['retstr'] if hdrs['retstr'] \
+        else 'HTTP res: %d' % res
+        raise RuntimeError(msg)
+    if res != 200:
+        fh.truncate()
+        if res == 401:
+            msg = 'Bad user/password.'              \
+            if '' not in (gconf._user, gconf._pass) \
+            else 'Insufficient authentication information given.'
+        else:
+            msg = hdrs['retstr']
+        raise RuntimeError(msg)
+
 def curl_to_file(fname):
     gconf._fsz = 0
     gconf._time = 0
@@ -144,31 +166,19 @@ def curl_to_file(fname):
         c.setopt(c.XFERINFOFUNCTION, curl_progress)
         try: c.perform()
         except pycurl.error:
-            fh.truncate()
-            httpcode = c.getinfo(c.RESPONSE_CODE)
-            if httpcode in (0, 200):
-                raise
-            raise RuntimeError('HTTP response code %d' % httpcode)
-        if c.getinfo(c.RESPONSE_CODE) != 200:
-            fh.truncate()
-            raise RuntimeError('HTTP RES %d' % c.getinfo(c.RESPONSE_CODE))
+            check_curl_error(c, fh, True)
+        check_curl_error(c, fh)
         c.close()
 
 def curl_to_buf(url):
     buf = BytesIO()
     c = curl_common_init(buf)
     c.setopt(c.URL, url)
-    c.perform()
+    try: c.perform()
+    except pycurl.error:
+        check_curl_error(c, buf, True)
+    check_curl_error(c, buf)
     c.close()
-    enc = None
-    if 'content-type' in hdrs:
-        content_type = hdrs['content-type'].lower()
-        match = re.search('charset=(\S+)', content_type)
-        if match:
-            enc = match.group(1)
-    if enc is None:
-        enc = 'iso-8859-1'
-        log.info('assuming encoding is %s' % enc)
 
     return buf
 
