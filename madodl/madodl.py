@@ -8,6 +8,7 @@ from itertools import chain
 import urllib.parse
 import argparse
 import logging
+import logging.handlers
 import pkg_resources
 import time
 import json
@@ -946,6 +947,15 @@ def init_args():
 # global config struct
 gconf = Struct()
 
+def logfile_filter(record):
+    if gconf._loglevel == 'all':
+        return 1
+    if (record.levelname == 'DEBUG' and gconf._loglevel != 'debug') or \
+       (record.levelname == 'INFO' and gconf._loglevel != 'verbose'):
+        return 0
+
+    return 1
+
 def init_config():
     c = None
     alltags = []
@@ -1071,6 +1081,16 @@ def init_config():
             if gconf._logfile:
                 set_simple_opt(yh, 'loglevel', ('verbose', 'debug', 'all'), \
                                'verbose')
+                if gconf._loglevel in ('debug', 'all'):
+                    loglvl = logging.DEBUG
+                else:
+                    loglvl = logging.INFO
+                # by default, log files will rotate at 10MB with one bk file.
+                logfile_hdlr = logging.handlers.RotatingFileHandler \
+                (gconf._logfile, maxBytes=10e6, backupCount=1)
+                logfile_hdlr.setLevel(loglvl)
+                logfile_hdlr.addFilter(logfile_filter)
+                log.addHandler(logfile_hdlr)
             else: gconf._loglevel = None
             set_simple_opt(yh, 'usecache', binopt, False)
             if gconf._usecache:
