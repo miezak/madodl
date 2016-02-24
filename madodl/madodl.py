@@ -1085,6 +1085,24 @@ def init_config():
         except yaml.YAMLError as e:
             log.error('config file error: %s' % str(e))
 
+class breaks(object):
+# Great idea from:
+# http://stackoverflow.com/a/23665658
+    class Break(Exception):
+      """Break out of the with statement"""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __enter__(self):
+        return self.value.__enter__()
+
+    def __exit__(self, etype, value, traceback):
+        error = self.value.__exit__(etype, value, traceback)
+        if etype == self.Break:
+            return True
+        return error
+
 def get_listing(manga):
     badret = ('', '')
     if gconf._usecache:
@@ -1113,55 +1131,58 @@ def get_listing(manga):
         assert os.path.exists(jsonloc)
         d1,d2,d3 = create_nwo_path(manga).split('/')
         mdir = None
-        with open(jsonloc, errors='surrogateescape') as f:
+        with breaks(open(jsonloc, errors='surrogateescape')) as f:
             jobj = json.load(f)
             for o in jobj[0].get('contents'):
                 if o['name'] == 'Manga':
                     jobj = o['contents'] ; break
             mdir, title = match_dir() or badret
             if not mdir:
-                die('manga not found')
+                log.warning("couldn't find title in JSON file. Trying " \
+                            "online query.")
+                raise breaks.Break
             gconf._cururl = 'https://' + loc['DOMAIN'] + loc['MLOC'] \
                 + d1 + '/' + d2 + '/' + d3 + '/' + title
             dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
+            log.info('\n-----\n'+dirls+'-----')
+            return (dirls, title)
+    qout = search_query(manga).getvalue().decode()
+    qp = ParseQuery()
+    qp.feed(qout)
+    # FIXME:
+    # this is a temporary workaround to
+    # filter out non-manga results until
+    # madokami allows for this granularity itself.
+    qp.mresultnum = 0
+    qp.mresults = []
+    for url, r in qp.results:
+        if r.startswith('/Manga') and r.count('/') >= 5:
+            qp.mresults.append([url,r])
+            qp.mresultnum += 1
+    if qp.mresultnum == 0:
+        die('manga not found')
+    if qp.mresultnum > 1:
+        print('Multiple matches found. Please choose from the '\
+              'selection below:\n')
+        i = 1
+        for url, f in qp.mresults:
+            print(str(i)+':', os.path.basename(f))
+            i += 1
+        print()
+        while 1:
+            try:
+                ch = int(input('choice > '))
+                if ch in range(1, i): break
+                print('Pick a number between 1 and %d' % (i-1))
+            except ValueError:
+                print('Invalid input.')
+        m = qp.mresults[ch-1][0]
+        title = os.path.basename(qp.mresults[ch-1][1])
     else:
-        qout = search_query(manga).getvalue().decode()
-        qp = ParseQuery()
-        qp.feed(qout)
-        # FIXME:
-        # this is a temporary workaround to
-        # filter out non-manga results until
-        # madokami allows for this granularity itself.
-        qp.mresultnum = 0
-        qp.mresults = []
-        for url, r in qp.results:
-            if r.startswith('/Manga') and r.count('/') >= 5:
-                qp.mresults.append([url,r])
-                qp.mresultnum += 1
-        if qp.mresultnum == 0:
-            die('manga not found')
-        if qp.mresultnum > 1:
-            print('Multiple matches found. Please choose from the '\
-                  'selection below:\n')
-            i = 1
-            for url, f in qp.mresults:
-                print(str(i)+':', os.path.basename(f))
-                i += 1
-            print()
-            while 1:
-                try:
-                    ch = int(input('choice > '))
-                    if ch in range(1, i): break
-                    print('Pick a number between 1 and %d' % (i-1))
-                except ValueError:
-                    print('Invalid input.')
-            m = qp.mresults[ch-1][0]
-            title = os.path.basename(qp.mresults[ch-1][1])
-        else:
-            m = qp.mresults[0][0]
-            title = os.path.basename(qp.mresults[0][1])
-            _('one match found: %s' % title)
-        dirls = search_exact(m, True).getvalue().decode()
+        m = qp.mresults[0][0]
+        title = os.path.basename(qp.mresults[0][1])
+        _('one match found: %s' % title)
+    dirls = search_exact(m, True).getvalue().decode()
 
     log.info('\n-----\n'+dirls+'-----')
     return (dirls, title)
@@ -1236,7 +1257,7 @@ def main():
                 die('argument -a: bad auth format')
             gconf._user, gconf._pass = up
         ret = main_loop(args.manga)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
         print()
         _('caught user signal, exiting...')
         return 0
