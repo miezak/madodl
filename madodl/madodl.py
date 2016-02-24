@@ -1111,6 +1111,7 @@ def get_listing(manga):
             os.makedirs(jsondirloc, 0o770, True)
             curl_json_list(jsonloc, True)
         assert os.path.exists(jsonloc)
+        log.info(create_nwo_path(manga).split('/'))
         d1,d2,d3 = create_nwo_path(manga).split('/')
         mdir = None
         with open(jsonloc, errors='surrogateescape') as f:
