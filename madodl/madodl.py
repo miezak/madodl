@@ -13,6 +13,10 @@ import pkg_resources
 import time
 import json
 
+if sys.hexversion < 0x30400f0:
+    sys.stderr.write('madodl requires Python 3.4 or newer.\n')
+    sys.exit(1)
+
 try:
     import unicurses
 except ImportError:
@@ -1266,6 +1270,7 @@ def main_loop(manga_list):
 # - handle the case where a complete archive has no prefixes (and is probably
 #   the only file in the directory)
 # - handle sub-directories in file listing
+# - extension filters
 #
 def main():
     try:

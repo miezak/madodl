@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
+import sys
 from setuptools import setup, find_packages
+
+if sys.hexversion < 0x30400f0:
+    sys.stderr.write('madodl requires Python 3.4 or newer.\n')
+    sys.exit(1)
 
 exec(open('madodl/version.py').read()) # get __version__
 
