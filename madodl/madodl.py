@@ -1017,6 +1017,7 @@ def init_config():
             if self._for == 'all':
                 return
             else:
+                # XXX for: 'all' fails
                 for kv in self._tag['for']:
                     for name in kv:
                         r = ParseRequest(list( \
@@ -1064,6 +1065,7 @@ def init_config():
         gconf._pass = ''
         gconf._alltags = ''
         gconf._default_outdir = os.getcwd()
+        gconf._no_output = False
         gconf._usecache = False
         gconf._cachefile = None
         return
