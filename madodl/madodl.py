@@ -863,7 +863,7 @@ def walk_thru_listing(req, title, dir_ls):
     return (compv, compc, allf, compfile)
 
 def _(msg, file=sys.stderr, **kwargs):
-    if not silent:
+    if not gconf._no_output:
         print('%s: %s' % (os.path.basename(__file__), msg), file=file, **kwargs)
 
 def init_args():
@@ -946,6 +946,8 @@ def init_args():
 
 # global config struct
 gconf = Struct()
+
+def nullfilter(r): return 0
 
 def logfile_filter(record):
     if gconf._loglevel == 'all':
@@ -1276,6 +1278,11 @@ def main():
             if len(up) == 1 or '' in up:
                 die('argument -a: bad auth format')
             gconf._user, gconf._pass = up
+        if args.silent or gconf._no_output:
+            # go ahead and set this so it is globally known.
+            # there is no need for distinction at this point.
+            gconf._no_output = True
+            log.addFilter(nullfilter)
         ret = main_loop(args.manga)
     except (KeyboardInterrupt, EOFError):
         print()
