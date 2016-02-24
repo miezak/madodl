@@ -868,13 +868,22 @@ def _(msg, file=sys.stderr, **kwargs):
 def init_args():
 
     def output_file(f):
-        if not os.path.isdir(f):
-            raise argparse.ArgumentError('%s is not a directory' % f)
-        if not os.access(f, os.R_OK | os.W_OK | os.X_OK):
+        f = os.path.normpath(f)
+        if not os.path.exists(f):
+            try:
+                os.makedirs(f)
+            except PermissionError:
+                raise argparse.ArgumentTypeError('Insufficient permissions to '\
+                    'create %s directory.' % f)
+            except NotADirectoryError:
+                raise argparse.ArgumentTypeError('Non-directory in path.')
+        elif not os.path.isdir(f):
+            raise argparse.ArgumentTypeError('%s is not a directory.' % f)
+        elif not os.access(f, os.R_OK | os.W_OK | os.X_OK):
             raise argparse.ArgumentTypeError( \
                 'Insufficient permissions to write to %s directory.' % f)
-        if f[-1] != '/':
-            f += '/'
+        if f[-1] != os.sep:
+            f += os.sep
 
         return f
 
