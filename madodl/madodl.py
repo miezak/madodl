@@ -1214,23 +1214,25 @@ def main_loop(manga_list):
 # - handle sub-directories in file listing
 #
 def main():
-    args = init_args()
-    init_config()
-    if args.outdir:
-        gconf._outdir = args.outdir
-    else:
-        gconf._outdir = gconf._default_outdir
-    if args.auth:
-        up = args.auth.split(':', 1)
-        if len(up) == 1 or '' in up:
-            die('argument -a: bad auth format')
-        gconf._user, gconf._pass = up
-    ret = main_loop(args.manga)
+    try:
+        args = init_args()
+        init_config()
+        if args.outdir:
+            gconf._outdir = args.outdir
+        else:
+            gconf._outdir = gconf._default_outdir
+        if args.auth:
+            up = args.auth.split(':', 1)
+            if len(up) == 1 or '' in up:
+                die('argument -a: bad auth format')
+            gconf._user, gconf._pass = up
+        ret = main_loop(args.manga)
+    except KeyboardInterrupt:
+        print()
+        _('caught user signal, exiting...')
+        return 0
+
     return ret
 
 if __name__ == '__main__':
-    try:
-        sys.exit(main())
-    except KeyboardInterrupt:
-        print()
-        _('caught signal, exiting...')
+    sys.exit(main())
