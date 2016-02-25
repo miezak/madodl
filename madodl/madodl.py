@@ -346,6 +346,7 @@ class ParseFile(ParseCommon):
 
         for t in self._alltoks:
             if t['typ'] == 'NUM':
+                t['raw'] = t['val']
                 t['val'] = float(t['val'])
 
         # variable stores whether vol or chp
@@ -450,21 +451,22 @@ class ParseFile(ParseCommon):
                         self.regex_mismatch('DAT', 'NUM', nidx)
                         self.regex_mismatch('DAT', 'COM')
                         self._idx += 1 ; continue
-                    wildnums.append(self._alltoks[nidx]['val'])
+                    wildnums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'RNG':
                     self.eat_delim()
                     if self.cur_tok_typ() != 'NUM':
                         self.regex_mismatch('DAT', 'NUM', nidx)
                         self.regex_mismatch('DAT', 'RNG')
                         self._idx += 1 ; continue
-                    wildnums.append(self._alltoks[nidx]['val'])
+                    self._alltoks[nidx]['val'] = tmprng = []
                     rngb = int(self._alltoks[nidx]['val']) + 1
                     for n in range(rngb, int(self.cur_tok_val())+1):
-                        wildnums.append(float(n))
+                        tmprng.append(float(n))
+                    wildnums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'DAT':
                     self.regex_mismatch('DAT', 'NUM')
                 else:
-                    wildnums.append(self._alltoks[nidx]['val'])
+                    wildnums.append(self._alltoks[nidx])
             elif t in ('PLT', 'PRE', 'PRL', 'ART'):
                 # shouldn't have vol/chp
                 if self._vols or self._chps:
@@ -507,17 +509,36 @@ class ParseFile(ParseCommon):
             self._idx += 1
 
         if wildnums:
-            if not self._vols and not self._chps:
-                # assuming vol
-                for n in sorted(wildnums):
-                    self._vols.append(n)
+            # These are numbers that did not have
+            # a prefix, so we do our best to guess.
+            wnls = [n['val'] for n in wildnums]
+            for n in wnls:
+                if isinstance(n, list):
+                    for subn in n: wnls.append(subn)
+                    del n
+            if len(wildnums[0]['raw']) >= 3:
+                dot = wildnums[0]['raw'].find('.')
+                if dot != -1 and dot < 2:
+                    pass
+                else:
+                    for n in sorted(wnls):
+                        self._chps.append(n)
+            elif not self._vols and not self._chps:
+                if not max(wnls) % 100:
+                    # assuming chp
+                    for n in sorted(wnls):
+                        self._chps.append(n)
+                else:
+                    # assuming vol
+                    for n in sorted(wnls):
+                        self._vols.append(n)
             elif not self._vols:
                 # assuming vol
-                for n in sorted(wildnums):
+                for n in sorted(wnls):
                     self._vols.append(n)
             elif not self._chps:
                 # assuming chp
-                for n in sorted(wildnums):
+                for n in sorted(wnls):
                     self._chps.append(n)
 
         self._title = self._title.strip()
@@ -737,23 +758,24 @@ def apply_tag_filters(f, title, cv, cc):
                 if c in cc:
                     break
             else: continue
-        #print('N',t._name, tlow)
+        log.info('N '+t._name+' '+t._filter+' '+t._case+' '+str(tlow))
+        log.info('NN '+str(t._name.lower() in tlow))
         if t._name.lower() in tlow:
             if (t._case == 'exact' and t._name not in f._tag) or \
                (t._case == 'upper' and t._name not in \
                                        [t.upper() for t in f._tag]):
                 return False
             curt = t._name.lower()
-            if t._filter == 'only' and curt not in tlow:
-                del f
-                return False
-            if t._filter == 'out' and curt in tlow:
+            if t._filter == 'out':
                 del f
                 return False
             if t._filter == 'prefer':
                 # ADDME
                 log.warning('`prefer` filter not yet implemented.')
-
+        else:
+            if t._filter == 'only':
+                del f
+                return False
     return True
 
 def walk_thru_listing(req, title, dir_ls):
@@ -800,6 +822,10 @@ def walk_thru_listing(req, title, dir_ls):
             log.info('file - %s' % f)
             compfile = f
             break
+        elif req._all and not req._vols:
+            for c in fo._chps:
+                if c not in cq:
+                    cq.append(c)
         for fov in fo._vols:
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
@@ -846,9 +872,9 @@ def walk_thru_listing(req, title, dir_ls):
                 if len(fo._chps) == 1: # only a single chp
                     cq.append(reqc)
         if oerng_c and (fo._chps and min(fo._chps) >= oest_c):
-            for reqc in req._chps:
-                if reqc not in cq:
-                    cq.append(reqc)
+            for c in fo._chps:
+                if c not in cq:
+                    cq.append(c)
         if vq:
             log.info('found vol %s ' % str(vq))
         if cq:
