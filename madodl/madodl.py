@@ -131,9 +131,9 @@ def curl_progress(ttdl, tdl, ttul, tul):
     tdl_conv = conv_bytes(tdl)
     # clear line manually since redrawln() isn't
     # working for me
-    gconf._stdscr.addstr(1, 0, ' '*gconf._COLS)
+    gconf._stdscr.addstr(2, 0, ' '*gconf._COLS)
     gconf._stdscr.refresh()
-    gconf._stdscr.addstr(1, 0, 'size %s | downloaded %s | speed %s' \
+    gconf._stdscr.addstr(2, 0, 'size %s | downloaded %s | speed %s' \
                      % (gconf._fsz, tdl_conv, dls_conv))
     gconf._stdscr.refresh()
     gconf._lastdl = tdl
@@ -458,8 +458,10 @@ class ParseFile(ParseCommon):
                         self.regex_mismatch('DAT', 'NUM', nidx)
                         self.regex_mismatch('DAT', 'RNG')
                         self._idx += 1 ; continue
+                    st = self.cur_tok_val()
                     self._alltoks[nidx]['val'] = tmprng = []
-                    rngb = int(self._alltoks[nidx]['val']) + 1
+                    tmprng.append(st)
+                    rngb = int(st) + 1
                     for n in range(rngb, int(self.cur_tok_val())+1):
                         tmprng.append(float(n))
                     wildnums.append(self._alltoks[nidx])
@@ -512,10 +514,14 @@ class ParseFile(ParseCommon):
             # These are numbers that did not have
             # a prefix, so we do our best to guess.
             wnls = [n['val'] for n in wildnums]
+            wnsubls = []
             for n in wnls:
                 if isinstance(n, list):
                     for subn in n: wnls.append(subn)
-                    del n
+                    wnsubls.append(n)
+            if wnsubls:
+                for l in wnsubls: wnls.remove(l)
+            del wnsubls
             if len(wildnums[0]['raw']) >= 3:
                 dot = wildnums[0]['raw'].find('.')
                 if dot != -1 and dot < 2:
@@ -1270,7 +1276,8 @@ def main_loop(manga_list):
                         for f,v,c in allf:
                             #log.info('DL ' + f)
                             gconf._stdscr.erase()
-                            gconf._stdscr.addstr(0, 0, 'current - %s' % f)
+                            gconf._stdscr.addstr(0, 0, 'title - %s' % title)
+                            gconf._stdscr.addstr(1, 0, 'current - %s' % f)
                             gconf._stdscr.refresh()
                             curl_to_file(f)
                 except:
@@ -1289,10 +1296,6 @@ def main_loop(manga_list):
 
 #
 # TODO:
-# - Check if a naming scheme is using _only_ chapters without a ch prefix,
-#   and thus, should default to chapters instead of vols. Probable solution
-#   would be to check for two or more leading zeros (there probably aren't
-#   100 volumes)
 # - handle the case where a complete archive has no prefixes (and is probably
 #   the only file in the directory)
 # - handle sub-directories in file listing
