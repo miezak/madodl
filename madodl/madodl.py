@@ -464,6 +464,8 @@ class ParseFile(ParseCommon):
                     rngb = int(st) + 1
                     for n in range(rngb, int(self.cur_tok_val())+1):
                         tmprng.append(float(n))
+                    if self.cur_tok_val() % 1:
+                        tmprng.append(float(self.cur_tok_val()))
                     wildnums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'DAT':
                     self.regex_mismatch('DAT', 'NUM')
@@ -1254,6 +1256,8 @@ def main_loop(manga_list):
             sout, title = get_listing(req._name)
             compv, compc, allf, compfile = \
             walk_thru_listing(req, title, sout)
+            if req._vols and req._vols[-1] == req.ALL: del req._vols[-1]
+            if req._chps and req._chps[-1] == req.ALL: del req._chps[-1]
             missv = str([v for v in req._vols if v not in compv]).strip('[]')
             missc = str([c for c in req._chps if c not in compc]).strip('[]')
             if missv:
@@ -1300,6 +1304,7 @@ def main_loop(manga_list):
 #   the only file in the directory)
 # - handle sub-directories in file listing
 # - extension filters
+# - allow greedy v/c matching
 #
 def main():
     try:
