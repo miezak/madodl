@@ -1,3 +1,14 @@
+## [v0.1.0a4] - 2016-02-26
+### Added
+* Output the title of the series currently being downloaded in the curses output
+
+### Fixed
+* Handle chapters without a prefix
+* Fix the {filter: out} config option.
+* Remove the req.ALL number from the volume/chapter requests. This is used
+to identify an open-ended range in the request. This fixes the erroneous
+message \`can't find (vol/chp) 4294967296.0\`.
+
 ## [v0.1.0a3] - 2016-02-25
 ### Added
 * Support for complete archive downloads.
@@ -32,6 +43,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.1.0a4]: https://github.com/miezak/madodl/compare/v0.1.0a3...v0.1.0a4
 [v0.1.0a3]: https://github.com/miezak/madodl/compare/v0.1.0a2...v0.1.0a3
 [v0.1.0a2]: https://github.com/miezak/madodl/compare/v0.1.0a1...v0.1.0a2
 [v0.1.0a1]: https://github.com/miezak/madodl/compare/v0.1.0a0...v0.1.0a1
