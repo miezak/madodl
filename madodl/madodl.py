@@ -747,6 +747,8 @@ def rm_req_elems(req, comp):
             req.remove(n)
 
 def apply_tag_filters(f, title, cv, cc):
+    f._preftag  = False
+    f._npreftag = False
     if not f._tag or not gconf._alltags:
         return True
     tlow = [t.lower() for t in f._tag]
@@ -778,8 +780,9 @@ def apply_tag_filters(f, title, cv, cc):
                 del f
                 return False
             if t._filter == 'prefer':
-                # ADDME
-                log.warning('`prefer` filter not yet implemented.')
+                f._preftag = True
+            elif t._filter == 'not prefer':
+                f._npreftag = True
         else:
             if t._filter == 'only':
                 del f
@@ -794,7 +797,7 @@ def walk_thru_listing(req, title, dir_ls):
        title - Title of the series requested.
        dir_ls - FTP directory listing.
 
-       Returns a tuple of three lists and one str.
+       Returns a 4-tuple of three lists and one str.
 
        The objects contain, in order:
        matched (volumes, chapters, filenames), and the complete archive
@@ -803,6 +806,7 @@ def walk_thru_listing(req, title, dir_ls):
     compv = []
     compc = []
     allf = []
+    npref = []
     compfile = None
     if req._vols and req._vols[-1] == req.ALL:
         oerng_v = True
@@ -841,7 +845,34 @@ def walk_thru_listing(req, title, dir_ls):
                         if foc not in compc: # with all new chps
                             continue # is new
                         else:
-                            log.warning('dup vol and chps seen')
+                            if fo._preftag:
+                                for ftup in allf:
+                                    if fov in ftup[1]:
+                                        log.info('replacing %s with preferred'\
+                                                 ' tag %s' % (ftup[0], fo._f))
+                                        allf.remove(ftup)
+                                        break
+                                else:
+                                    die("BUG: couldn't find dup vol "\
+                                        "when replacing with pref tag", \
+                                        lvl='critical')
+                                apnd = True
+                                vq.append(fov)
+                            elif not fo._npreftag and npref:
+                                for t in npref:
+                                    if fov in t[1]:
+                                        tup = t ; break
+                                else:
+                                    log.warning('dup vol and chps seen')
+                                    break
+                                log.info('replacing nonpreferred %s '\
+                                         'with %s' % (tup[0], fo._f))
+                                allf.remove(tup)
+                                npref.remove(tup)
+                                apnd = True
+                                vq.append(fov)
+                            else:
+                                log.warning('dup vol and chps seen')
                             break
                     else: # all new
                         apnd = True
@@ -888,6 +919,8 @@ def walk_thru_listing(req, title, dir_ls):
         if cq:
             log.info('found chp %s ' % str(cq))
         if vq or cq:
+            if fo._npreftag:
+                npref.append((f, vq, cq))
             allf.append((f, vq, cq))
             log.info('file - %s' % f)
         for v in vq: compv.append(v)
@@ -1169,6 +1202,7 @@ def get_listing(manga):
     badret = ('', '')
     if gconf._usecache:
         def match_dir():
+        # XXX need i say..
             mlow = manga.lower()
             for c1 in jobj:
                 if c1['name'] == d1:
