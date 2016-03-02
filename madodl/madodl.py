@@ -1201,21 +1201,18 @@ class breaks(object):
 def get_listing(manga):
     badret = ('', '')
     if gconf._usecache:
-        def match_dir():
-        # XXX need i say..
-            mlow = manga.lower()
-            for c1 in jobj:
-                if c1['name'] == d1:
-                    for c2 in c1['contents']:
-                        if c2['name'] == d2:
-                            for c3 in c2['contents']:
-                                if c3['name'] == d3:
-                                    for t in c3['contents']:
-                                        if t['name'].lower() == mlow:
-                                            return (t['contents'], t['name'])
-                                    else: return None
-                            else: return None
-                    else: return None
+        def match_dir(diriter, ldict):
+            global mlow
+            try:
+                cdir = next(diriter)
+            except StopIteration:
+                for cdict in ldict:
+                    if cdict['name'].lower() == mlow:
+                        return (cdict['contents'], cdict['name'])
+                return None
+            for cdict in ldict:
+                if cdict['name'] == cdir:
+                    return match_dir(diriter, cdict['contents'])
             else: return None
         jsonloc =                                                   \
         os.path.join(gconf._home, '.cache', 'madodl', 'files.json') \
@@ -1232,7 +1229,9 @@ def get_listing(manga):
             for o in jobj[0].get('contents'):
                 if o['name'] == 'Manga':
                     jobj = o['contents'] ; break
-            mdir, title = match_dir() or badret
+            global mlow
+            mlow = manga.lower()
+            mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
             if not mdir:
                 log.warning("couldn't find title in JSON file. Trying " \
                             "online query.")
