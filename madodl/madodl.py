@@ -836,8 +836,36 @@ def walk_thru_listing(req, title, dir_ls):
             break
         elif req._all and not req._vols:
             for c in fo._chps:
-                if c not in cq:
+                if c not in cq and c not in compc:
                     cq.append(c)
+                else: # XXX these are copy/pasted and need to be condensed
+                    if fo._preftag:
+                        for ftup in allf:
+                            if c in ftup[2]:
+                                log.info('replacing %s with preferred'\
+                                         ' tag %s' % (ftup[0], fo._f))
+                                allf.remove(ftup)
+                                break
+                        else:
+                            die("BUG: couldn't find dup chp "\
+                                "when replacing with pref tag", \
+                                lvl='critical')
+                        cq.append(c)
+                        continue
+                    elif not fo._npreftag and npref:
+                        for t in npref:
+                            if c in t[2]:
+                                tup = t ; break
+                        else:
+                            log.warning('dup vol and chps seen')
+                            break
+                        log.info('replacing nonpreferred %s '\
+                                 'with %s' % (tup[0], fo._f))
+                        allf.remove(tup)
+                        npref.remove(tup)
+                        cq.append(c)
+                        continue
+                    cq = [] ; break
         for fov in fo._vols:
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
@@ -883,6 +911,8 @@ def walk_thru_listing(req, title, dir_ls):
         if apnd:
             for foc in fo._chps:
                 cq.append(foc)
+        # XXX the chapter logic is really hackish and probably
+        # needs to be completely rewritten.
         if len(req._chps) > 1 and len(fo._chps) == len(req._chps) \
            and req._chps[0] == fo._chps[0]:
             rmax = None
@@ -906,14 +936,48 @@ def walk_thru_listing(req, title, dir_ls):
                     if i <= rmax:
                         cq.append(float(i))
                     else: break
-        for reqc in req._chps:
-            if (req._all or reqc in fo._chps) and reqc not in cq:
-                if len(fo._chps) == 1: # only a single chp
-                    cq.append(reqc)
-        if oerng_c and (fo._chps and min(fo._chps) >= oest_c):
-            for c in fo._chps:
-                if c not in cq:
-                    cq.append(c)
+        #if len(fo._chps) == 1: # only a single chp
+        if req._chps:
+            if oerng_c:
+                for c in fo._chps:
+                    if c in cq or c in compc:
+                        break
+                else:
+                    if fo._chps and min(fo._chps) >= oest_c:
+                        for c in fo._chps:
+                            cq.append(c)
+            else:
+                for c in req._chps:
+                    if (req._all or c in fo._chps) and c not in cq:
+                        if c not in compc:
+                            cq.append(c)
+                        else:
+                        # XXX these are copy/pasted and need to be condensed
+                            if fo._preftag:
+                                for ftup in allf:
+                                    if c in ftup[2]:
+                                        log.info('replacing %s with preferred'\
+                                             ' tag %s' % (ftup[0], fo._f))
+                                        allf.remove(ftup)
+                                        break
+                                else:
+                                    die("BUG: couldn't find dup chp "\
+                                        "when replacing with pref tag", \
+                                        lvl='critical')
+                                cq.append(c)
+                                continue
+                            elif not fo._npreftag and npref:
+                                for t in npref:
+                                    if c in t[2]:
+                                        tup = t ; break
+                                else:
+                                    log.warning('dup vol and chps seen')
+                                    break
+                                log.info('replacing nonpreferred %s '\
+                                         'with %s' % (tup[0], fo._f))
+                                allf.remove(tup)
+                                npref.remove(tup)
+                                cq.append(c)
         if vq:
             log.info('found vol %s ' % str(vq))
         if cq:
