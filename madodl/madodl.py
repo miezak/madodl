@@ -519,7 +519,7 @@ class ParseFile(ParseCommon):
             wnsubls = []
             for n in wnls:
                 if isinstance(n, list):
-                    for subn in n: wnls.append(subn)
+                    wnls.extend(n)
                     wnsubls.append(n)
             if wnsubls:
                 for l in wnsubls: wnls.remove(l)
@@ -529,25 +529,20 @@ class ParseFile(ParseCommon):
                 if dot != -1 and dot < 2:
                     pass
                 else:
-                    for n in sorted(wnls):
-                        self._chps.append(n)
+                    self._chps.extend(sorted(wnls))
             elif not self._vols and not self._chps:
                 if not max(wnls) % 100:
                     # assuming chp
-                    for n in sorted(wnls):
-                        self._chps.append(n)
+                    self._chps.extend(sorted(wnls))
                 else:
                     # assuming vol
-                    for n in sorted(wnls):
-                        self._vols.append(n)
+                    self._vols.extend(sorted(wnls))
             elif not self._vols:
                 # assuming vol
-                for n in sorted(wnls):
-                    self._vols.append(n)
+                self._vols.extend(sorted(wnls))
             elif not self._chps:
                 # assuming chp
-                for n in sorted(wnls):
-                    self._chps.append(n)
+                self._chps.extend(sorted(wnls))
 
         self._title = self._title.strip()
 
@@ -822,7 +817,7 @@ def walk_thru_listing(req, title, dir_ls):
         # FIXME:
         # handle this in a more fail-safe manner.
         if f == 'Viz Releases':
-            continue # auto-uploaded dir
+            continue # a common sub-dir
         fo = ParseFile(f, title)
         if not apply_tag_filters(fo, title, compv, compc):
             log.info('** filtered out ' + fo._f)
@@ -941,11 +936,36 @@ def walk_thru_listing(req, title, dir_ls):
             if oerng_c:
                 for c in fo._chps:
                     if c in cq or c in compc:
+                        # XXX these are copy/pasted and need to be condensed
+                        if fo._preftag and min(fo._chps) >= oest_c:
+                            for ftup in allf:
+                                if c in ftup[2]:
+                                    log.info('replacing %s with preferred'\
+                                         ' tag %s' % (ftup[0], fo._f))
+                                    allf.remove(ftup)
+                                    cq.extend(fo._chps)
+                                    break
+                            else:
+                                die("BUG: couldn't find any dup chp in %s "\
+                                    "when replacing with pref tag" % fo._chps, \
+                                    lvl='critical')
+                        elif not fo._npreftag and npref \
+                             and min(fo._chps) >= oest_c:
+                            for t in npref:
+                                if c in t[2]:
+                                    tup = t ; break
+                            else:
+                                log.warning('dup vol and chps seen')
+                                break
+                            log.info('replacing nonpreferred %s '\
+                                     'with %s' % (tup[0], fo._f))
+                            allf.remove(tup)
+                            npref.remove(tup)
+                            continue
                         break
                 else:
                     if fo._chps and min(fo._chps) >= oest_c:
-                        for c in fo._chps:
-                            cq.append(c)
+                        cq.extend(fo._chps)
             else:
                 for c in req._chps:
                     if (req._all or c in fo._chps) and c not in cq:
@@ -987,8 +1007,8 @@ def walk_thru_listing(req, title, dir_ls):
                 npref.append((f, vq, cq))
             allf.append((f, vq, cq))
             log.info('file - %s' % f)
-        for v in vq: compv.append(v)
-        for c in cq: compc.append(c)
+        compv.extend(vq)
+        compc.extend(cq)
         rm_req_elems(reqv_cpy, vq)
         rm_req_elems(reqc_cpy, cq)
         compv = list(set(compv))
