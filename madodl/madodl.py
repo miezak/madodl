@@ -774,6 +774,7 @@ def apply_tag_filters(f, title, cv, cc):
             if t._filter == 'out':
                 del f
                 return False
+            # TODO: handle `for` sub-opt for pref
             if t._filter == 'prefer':
                 f._preftag = True
             elif t._filter == 'not prefer':
@@ -825,6 +826,7 @@ def walk_thru_listing(req, title, dir_ls):
         vq = [] ; cq = []
         apnd = False
         if fo._all and req._all:
+            # XXX need pref filt handling here
             log.info('found complete archive')
             log.info('file - %s' % f)
             compfile = f
@@ -862,6 +864,7 @@ def walk_thru_listing(req, title, dir_ls):
                         continue
                     cq = [] ; break
         for fov in fo._vols:
+            # XXX need pref filt handling here
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
                     for foc in fo._chps: # then check if vol is split
@@ -904,8 +907,8 @@ def walk_thru_listing(req, title, dir_ls):
                     apnd = True
                     vq.append(fov)
         if apnd:
-            for foc in fo._chps:
-                cq.append(foc)
+            cq.extend(fo._chps)
+
         # XXX the chapter logic is really hackish and probably
         # needs to be completely rewritten.
         if len(req._chps) > 1 and len(fo._chps) == len(req._chps) \
@@ -1169,10 +1172,12 @@ def init_config():
             if self._filter not in self.VALID_FILTER:
                 log.error('bad filter value for %s' % self._tag['name'])
                 self._filter = self.DEFAULT_FILTER
-            if self._for == 'all':
+            if self._for == 'all' or self._tag['for'] in ('all',['all']):
                 return
             else:
-                # XXX for: 'all' fails
+                log.warning('madodl currently only handles the value '\
+                            '`all` for tag filters, and will handle ' \
+                            'any filters as if such.')
                 for kv in self._tag['for']:
                     for name in kv:
                         r = ParseRequest(list( \
@@ -1229,7 +1234,7 @@ def init_config():
             yh = yaml.safe_load(cf)
             for opt in yh.keys():
                 if opt not in VALID_OPTS:
-                    raise RuntimeError('bad option %s in config file' % opt)
+                    raise RuntimeError('bad option `%s` in config file' % opt)
             if 'tags' in yh and yh['tags']:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
