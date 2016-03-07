@@ -133,7 +133,7 @@ def curl_progress(ttdl, tdl, ttul, tul):
     # working for me
     gconf._stdscr.addstr(2, 0, ' '*gconf._COLS)
     gconf._stdscr.refresh()
-    gconf._stdscr.addstr(2, 0, 'size %s | downloaded %s | speed %s' \
+    gconf._stdscr.addstr(2, 0, 'size %s | downloaded %s | speed %s'
                      % (gconf._fsz, tdl_conv, dls_conv))
     gconf._stdscr.refresh()
     gconf._lastdl = tdl
@@ -165,7 +165,7 @@ def curl_to_file(fname):
     gconf._LINES, gconf._COLS = unicurses.getmaxyx(gconf._stdscr)
     with open(os.path.join(gconf._outdir, fname), 'wb') as fh:
         c = curl_common_init(fh)
-        c.setopt(c.URL, os.path.join(gconf._cururl, \
+        c.setopt(c.URL, os.path.join(gconf._cururl,
                  urllib.parse.quote(fname)))
         c.setopt(c.NOPROGRESS, False)
         c.setopt(c.XFERINFOFUNCTION, curl_progress)
@@ -245,7 +245,7 @@ class ParseCommon:
         return True
 
     def regex_mismatch(self, goodt, badt, uidx=False):
-        log.warning('regex falsely picked up %s token as %s. ' \
+        log.warning('regex falsely picked up %s token as %s. '
                     'Replacing type.' % (goodt, badt))
         if uidx is not False:
             self._alltoks[uidx]['typ'] = goodt
@@ -341,7 +341,7 @@ class ParseFile(ParseCommon):
             self._alltoks.append({'typ' : typ, 'val' : val})
 
         if self._alltoks[-1]['typ'] != 'EXT':
-            die('Encountered a file without an extension, which is '\
+            die('Encountered a file without an extension, which is '
                          'not currently supported. Bailing.', lvl='FATAL')
 
         for t in self._alltoks:
@@ -480,19 +480,19 @@ class ParseFile(ParseCommon):
             elif t == 'OMK':
                 # probably should have vol/chp
                 if not self._vols and not self._chps:
-                    log.warning('regex picked up a bonus type without '\
-                                'a vol/chp identifier, which may be '  \
+                    log.warning('regex picked up a bonus type without '
+                                'a vol/chp identifier, which may be '
                                 'incorrect. Adding anyway...')
                 self.other = t
             elif t == 'ALL':
                 self._all = True
             elif t == 'GRB':
-                if self.get_tok_typ(self._idx+1) not in ('VOL', 'CHP', 'ALL', \
-                                              'OMK', 'PLT', 'PRE',            \
+                if self.get_tok_typ(self._idx+1) not in ('VOL', 'CHP', 'ALL',
+                                              'OMK', 'PLT', 'PRE',
                                               'PRL', 'ART'):
                     self._idx += 1
-                    if self.cur_tok_typ() == 'NUM' and \
-                       self.get_tok_typ(self._idx+1) != 'DAT':
+                    if (self.cur_tok_typ() == 'NUM' and
+                       self.get_tok_typ(self._idx+1) != 'DAT'):
                         continue
                     tmptag = ''
                     while self.cur_tok_typ() not in ('GRE', None):
@@ -501,8 +501,8 @@ class ParseFile(ParseCommon):
                     if self.cur_tok_val() == None:
                         die('BUG: tag matching couldn`t find GRE')
                     if tmptag[:len(title)].lower().strip() == title.lower():
-                        if self.get_tok_typ(self._idx-1) in \
-                            ('PLT', 'PRE', 'PRO', 'PRL', 'ART', 'OMK'):
+                        if (self.get_tok_typ(self._idx-1) in
+                            ('PLT', 'PRE', 'PRO', 'PRL', 'ART', 'OMK')):
                             continue # non-group tag with title in text
                     self._tag.append(tmptag)
             elif t == 'DAT':
@@ -627,8 +627,8 @@ class ParseRequest(ParseCommon):
                         else:
                             self.push_to_last(self.ALL)
                             break
-                    if ((self.get_tok_typ(self._idx-1) != 'NUM' and \
-                         self.get_tok_typ(self._idx+1) != 'NUM') or \
+                    if ((self.get_tok_typ(self._idx-1) != 'NUM' and
+                         self.get_tok_typ(self._idx+1) != 'NUM') or
                          self.get_tok_typ(self._idx+1) == 'COM'):
                         raise RuntimeError('bad range for %s' % what)
                     st = int(self.get_tok_val(self._idx-1))+1
@@ -779,9 +779,9 @@ def apply_tag_filters(f, title, cv, cc):
         log.info('N '+t._name+' '+t._filter+' '+t._case+' '+str(tlow))
         log.info('NN '+str(t._name.lower() in tlow))
         if t._name.lower() in tlow:
-            if (t._case == 'exact' and t._name not in f._tag) or \
-               (t._case == 'upper' and t._name not in \
-                                       [t.upper() for t in f._tag]):
+            if ((t._case == 'exact' and t._name not in f._tag) or
+               (t._case == 'upper' and t._name not in
+                                       [t.upper() for t in f._tag])):
                 return False
             curt = t._name.lower()
             if t._filter == 'out':
@@ -810,14 +810,14 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
     if fo._preftag:
             for ftup in allf:
                 if vc in ftup[ftupidx]:
-                    log.info('replacing %s with preferred'\
+                    log.info('replacing %s with preferred'
                              ' tag %s' % (ftup[0], fo._f))
                     allf.remove(ftup)
                     vcq.extend(whatls)
                     return 'break'
             else:
-                die("BUG: couldn't find any dup %s in %s "\
-                    "when replacing with pref tag" % (what, whatls), \
+                die("BUG: couldn't find any dup %s in %s "
+                    "when replacing with pref tag" % (what, whatls),
                     lvl='critical')
     elif not fo._npreftag and npref:
         for t in npref:
@@ -826,7 +826,7 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
         else:
             log.warning('dup vol and chps seen')
             return 'break'
-        log.info('replacing nonpreferred %s '\
+        log.info('replacing nonpreferred %s '
                  'with %s' % (tup[0], fo._f))
         allf.remove(tup)
         npref.remove(tup)
@@ -922,8 +922,8 @@ def walk_thru_listing(req, title, dir_ls):
 
         # XXX the chapter logic is really hackish and probably
         # needs to be completely rewritten.
-        if len(req._chps) > 1 and len(fo._chps) == len(req._chps) \
-           and req._chps[0] == fo._chps[0]:
+        if (len(req._chps) > 1 and len(fo._chps) == len(req._chps)
+           and req._chps[0] == fo._chps[0]):
             rmax = None
             fomax = None
             last = req._chps[0]
@@ -1003,14 +1003,14 @@ def init_args():
             try:
                 os.makedirs(f)
             except PermissionError:
-                raise argparse.ArgumentTypeError('Insufficient permissions to '\
+                raise argparse.ArgumentTypeError('Insufficient permissions to '
                     'create %s directory.' % f)
             except NotADirectoryError:
                 raise argparse.ArgumentTypeError('Non-directory in path.')
         elif not os.path.isdir(f):
             raise argparse.ArgumentTypeError('%s is not a directory.' % f)
         elif not os.access(f, os.R_OK | os.W_OK | os.X_OK):
-            raise argparse.ArgumentTypeError( \
+            raise argparse.ArgumentTypeError(
                 'Insufficient permissions to write to %s directory.' % f)
         if f[-1] != os.sep:
             f += os.sep
@@ -1023,22 +1023,22 @@ def init_args():
         _version = '(local)'
 
     args_parser = \
-    argparse.ArgumentParser(description='Download manga from madokami.',   \
-                            usage='%(prog)s [-dhsv] [-p ident val ...] '   \
-                                            '-m manga '                    \
-                                            '[volume(s)] [chapter(s)] ... '\
+    argparse.ArgumentParser(description='Download manga from madokami.',
+                            usage='%(prog)s [-dhsv] [-p ident val ...] '
+                                            '-m manga '
+                                            '[volume(s)] [chapter(s)] ... '
                                             '[-o out-dir]')
-    args_parser.add_argument('-d', action='store_true', dest='debug', \
+    args_parser.add_argument('-d', action='store_true', dest='debug',
                              help='print debugging messages')
-    args_parser.add_argument('-s', action='store_true', dest='silent', \
+    args_parser.add_argument('-s', action='store_true', dest='silent',
                              help='silence message output')
-    args_parser.add_argument('-v', action='store_true', dest='verbose', \
+    args_parser.add_argument('-v', action='store_true', dest='verbose',
                              help='print verbose messages')
     args_parser.add_argument('-V', '--version', action='version',
                              version='madodl ' + _version)
-    args_parser.add_argument('-m', nargs='+', action='append', dest='manga', \
-                             required=True,                                  \
-                             metavar=('manga', 'volume(s) chapter(s)'),      \
+    args_parser.add_argument('-m', nargs='+', action='append', dest='manga',
+                             required=True,
+                             metavar=('manga', 'volume(s) chapter(s)'),
                              help='''
                                   The name of the manga to download.
                                   If only the manga title is given, all manga
@@ -1046,8 +1046,8 @@ def init_args():
                                   takes a list of volumes and/or a list of
                                   chapters to download.
                                   ''')
-    args_parser.add_argument('-o', type=output_file, dest='outdir', \
-                             metavar='outdir', \
+    args_parser.add_argument('-o', type=output_file, dest='outdir',
+                             metavar='outdir',
                              help='directory to save files to')
     args_parser.add_argument('-a', dest='auth', metavar='user:pw',
                             help='madokami user and password')
@@ -1066,7 +1066,7 @@ def init_args():
     log.setLevel(loglvl)
     cons_hdlr = logging.StreamHandler()
     cons_hdlr.setLevel(loglvl)
-    logfmt = logging.Formatter('%(filename)s: %(funcName)s(): ' \
+    logfmt = logging.Formatter('%(filename)s: %(funcName)s(): '
                                '%(levelname)s: %(message)s')
     cons_hdlr.setFormatter(logfmt)
     log.addHandler(cons_hdlr)
@@ -1081,8 +1081,8 @@ def nullfilter(r): return 0
 def logfile_filter(record):
     if gconf._loglevel == 'all':
         return 1
-    if (record.levelname == 'DEBUG' and gconf._loglevel != 'debug') or \
-       (record.levelname == 'INFO' and gconf._loglevel != 'verbose'):
+    if ((record.levelname == 'DEBUG' and gconf._loglevel != 'debug') or
+       (record.levelname == 'INFO' and gconf._loglevel != 'verbose')):
         return 0
 
     return 1
@@ -1146,13 +1146,13 @@ def init_config():
             if self._for == 'all' or self._tag['for'] in ('all',['all']):
                 return
             else:
-                log.warning('madodl currently only handles the value '\
-                            '`all` for tag filters, and will handle ' \
+                log.warning('madodl currently only handles the value '
+                            '`all` for tag filters, and will handle '
                             'any filters as if such.')
                 for kv in self._tag['for']:
                     for name in kv:
-                        r = ParseRequest(list( \
-                        chain.from_iterable(   \
+                        r = ParseRequest(list(
+                        chain.from_iterable(
                         [[name],kv[name].split()])))
                         self._for.append({name : r})
 
@@ -1187,7 +1187,7 @@ def init_config():
         else:
             log.warning('log file not found. using defaults.')
     else:
-        log.warning('madodl doesn`t current support a config file on your OS. '\
+        log.warning('madodl doesn`t current support a config file on your OS. '
                     'Using defaults.')
     if not c:
         # XXX check back
@@ -1214,22 +1214,22 @@ def init_config():
             set_simple_opt(yh, 'no_output', binopt, False)
             set_simple_opt(yh, 'logfile', None, None)
             if gconf._logfile:
-                set_simple_opt(yh, 'loglevel', ('verbose', 'debug', 'all'), \
+                set_simple_opt(yh, 'loglevel', ('verbose', 'debug', 'all'),
                                'verbose')
                 if gconf._loglevel in ('debug', 'all'):
                     loglvl = logging.DEBUG
                 else:
                     loglvl = logging.INFO
                 # by default, log files will rotate at 10MB with one bk file.
-                logfile_hdlr = logging.handlers.RotatingFileHandler \
-                (gconf._logfile, maxBytes=10e6, backupCount=1)
+                logfile_hdlr = logging.handlers.RotatingFileHandler(
+                    gconf._logfile, maxBytes=10e6, backupCount=1)
                 logfile_hdlr.setLevel(loglvl)
                 logfile_hdlr.addFilter(logfile_filter)
                 log.addHandler(logfile_hdlr)
             else: gconf._loglevel = None
             set_simple_opt(yh, 'usecache', binopt, False)
             if gconf._usecache:
-                set_simple_opt(yh, 'cachefile', None, \
+                set_simple_opt(yh, 'cachefile', None,
                            os.path.join(h, '.cache', 'madodl', 'files.json'))
             else: gconf._cachefile = None
             set_simple_opt(yh, 'default_outdir', None, os.getcwd())
@@ -1293,7 +1293,7 @@ def get_listing(manga):
             mlow = manga.lower()
             mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
             if not mdir:
-                log.warning("couldn't find title in JSON file. Trying " \
+                log.warning("couldn't find title in JSON file. Trying "
                             "online query.")
                 raise breaks.Break
             gconf._cururl = 'https://' + loc['DOMAIN'] + loc['MLOC'] \
