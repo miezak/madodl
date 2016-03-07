@@ -745,9 +745,9 @@ def rm_req_elems(req, comp):
 
 def common_elem(iter1, iter2):
     assert iter1 and iter2
-    loc1 = iter1 ; loc2 = iter2
+    loc1 = iter1 ; loc2 = chain.from_iterable(iter2)
     for elem in loc1:
-        if elem in loc2:
+        if elem in loc2
             yield elem
 
     return
@@ -941,9 +941,9 @@ def walk_thru_listing(req, title, dir_ls):
             if None in {rmax, fomax} or rmax != fomax:
                 pass
             else:
-                #iter_celems = common_elem(req.chps, (cq, compc))
-                #for cclash in iter_celems:
-                #    pass # ADDME do chk...
+                iter_celems = common_elem(req.chps, (cq, compc))
+                for cclash in iter_celems:
+                    check_preftags(cclash, cq, fo, allf, npref, False)
                 for i in req._chps:
                     if i <= rmax:
                         cq.append(float(i))
