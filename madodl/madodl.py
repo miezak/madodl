@@ -736,10 +736,23 @@ def search_exact(name='',ml=False):
 def search_query(name=''):
     return curl_to_buf('https://'+loc['DOMAIN']+loc['SEARCH']+name)
 
+## Helper Functions ##
+
 def rm_req_elems(req, comp):
     for n in comp:
         if n in req:
             req.remove(n)
+
+def common_elem(iter1, iter2):
+    assert iter1 and iter2
+    loc1 = iter1 ; loc2 = iter2
+    for elem in loc1:
+        if elem in loc2:
+            yield elem
+
+    return
+
+######################
 
 def apply_tag_filters(f, title, cv, cc):
     f._preftag  = False
@@ -784,6 +797,42 @@ def apply_tag_filters(f, title, cv, cc):
                 del f
                 return False
     return True
+
+def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
+    if v_or_c:
+        ftupidx = 1
+        what = 'vol'
+        whatls = fo._vols
+    else:
+        ftupidx = 2
+        what = 'chp'
+        whatls = fo._chps
+    if fo._preftag:
+            for ftup in allf:
+                if vc in ftup[ftupidx]:
+                    log.info('replacing %s with preferred'\
+                             ' tag %s' % (ftup[0], fo._f))
+                    allf.remove(ftup)
+                    vcq.extend(whatls)
+                    return 'break'
+            else:
+                die("BUG: couldn't find any dup %s in %s "\
+                    "when replacing with pref tag" % (what, whatls), \
+                    lvl='critical')
+    elif not fo._npreftag and npref:
+        for t in npref:
+            if vc in t[ftupidx]:
+                tup = t ; break
+        else:
+            log.warning('dup vol and chps seen')
+            return 'break'
+        log.info('replacing nonpreferred %s '\
+                 'with %s' % (tup[0], fo._f))
+        allf.remove(tup)
+        npref.remove(tup)
+        return 'continue'
+
+    return None
 
 def walk_thru_listing(req, title, dir_ls):
     '''Walk through FTP directory listing and extract requested data.
@@ -835,70 +884,32 @@ def walk_thru_listing(req, title, dir_ls):
             for c in fo._chps:
                 if c not in cq and c not in compc:
                     cq.append(c)
-                else: # XXX these are copy/pasted and need to be condensed
-                    if fo._preftag:
-                        for ftup in allf:
-                            if c in ftup[2]:
-                                log.info('replacing %s with preferred'\
-                                         ' tag %s' % (ftup[0], fo._f))
-                                allf.remove(ftup)
-                                break
-                        else:
-                            die("BUG: couldn't find dup chp "\
-                                "when replacing with pref tag", \
-                                lvl='critical')
-                        cq.append(c)
-                        continue
-                    elif not fo._npreftag and npref:
-                        for t in npref:
-                            if c in t[2]:
-                                tup = t ; break
-                        else:
-                            log.warning('dup vol and chps seen')
-                            break
-                        log.info('replacing nonpreferred %s '\
-                                 'with %s' % (tup[0], fo._f))
-                        allf.remove(tup)
-                        npref.remove(tup)
+                else:
+                    act = check_preftags(fov, vq, fo, allf, npref, True)
+                    if isinstance(act, str):
+                        if fo._preftag:
+                            continue
+                        if act == 'break': break
                         cq.append(c)
                         continue
                     cq = [] ; break
         for fov in fo._vols:
-            # XXX need pref filt handling here
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
                     for foc in fo._chps: # then check if vol is split
-                        if foc not in compc: # with all new chps
+                        if compc and foc not in compc: # with all new chps
                             continue # is new
                         else:
-                            if fo._preftag:
-                                for ftup in allf:
-                                    if fov in ftup[1]:
-                                        log.info('replacing %s with preferred'\
-                                                 ' tag %s' % (ftup[0], fo._f))
-                                        allf.remove(ftup)
-                                        break
-                                else:
-                                    die("BUG: couldn't find dup vol "\
-                                        "when replacing with pref tag", \
-                                        lvl='critical')
-                                apnd = True
-                                vq.append(fov)
-                            elif not fo._npreftag and npref:
-                                for t in npref:
-                                    if fov in t[1]:
-                                        tup = t ; break
-                                else:
-                                    log.warning('dup vol and chps seen')
-                                    break
-                                log.info('replacing nonpreferred %s '\
-                                         'with %s' % (tup[0], fo._f))
-                                allf.remove(tup)
-                                npref.remove(tup)
-                                apnd = True
-                                vq.append(fov)
-                            else:
-                                log.warning('dup vol and chps seen')
+                            act = check_preftags(fov, vq, fo, allf, npref, True)
+                            if isinstance(act, str):
+                                log.info('ACT '+act)
+                                if fo._preftag:
+                                    apnd = True
+                                if act == 'break'   : break
+                                if act == 'continue':
+                                    # always npref
+                                    apnd = True
+                                    continue
                             break
                     else: # all new
                         apnd = True
@@ -927,44 +938,24 @@ def walk_thru_listing(req, title, dir_ls):
                     fomax = fo._chps[i]
                 else: break
                 last = fo._chps[i]
-            if rmax is None or fomax is None or rmax != fomax:
+            if None in {rmax, fomax} or rmax != fomax:
                 pass
             else:
+                #iter_celems = common_elem(req.chps, (cq, compc))
+                #for cclash in iter_celems:
+                #    pass # ADDME do chk...
                 for i in req._chps:
                     if i <= rmax:
                         cq.append(float(i))
                     else: break
         #if len(fo._chps) == 1: # only a single chp
         if req._chps:
-            if oerng_c:
+            if oerng_c and fo._chps and min(fo._chps) >= oest_c:
                 for c in fo._chps:
                     if c in cq or c in compc:
-                        # XXX these are copy/pasted and need to be condensed
-                        if fo._preftag and min(fo._chps) >= oest_c:
-                            for ftup in allf:
-                                if c in ftup[2]:
-                                    log.info('replacing %s with preferred'\
-                                         ' tag %s' % (ftup[0], fo._f))
-                                    allf.remove(ftup)
-                                    cq.extend(fo._chps)
-                                    break
-                            else:
-                                die("BUG: couldn't find any dup chp in %s "\
-                                    "when replacing with pref tag" % fo._chps, \
-                                    lvl='critical')
-                        elif not fo._npreftag and npref \
-                             and min(fo._chps) >= oest_c:
-                            for t in npref:
-                                if c in t[2]:
-                                    tup = t ; break
-                            else:
-                                log.warning('dup vol and chps seen')
-                                break
-                            log.info('replacing nonpreferred %s '\
-                                     'with %s' % (tup[0], fo._f))
-                            allf.remove(tup)
-                            npref.remove(tup)
-                            continue
+                        act = check_preftags(c, cq, fo, allf, npref, False)
+                        if act == 'break'   : break
+                        if act == 'continue': continue
                         break
                 else:
                     if fo._chps and min(fo._chps) >= oest_c:
@@ -975,32 +966,12 @@ def walk_thru_listing(req, title, dir_ls):
                         if c not in compc:
                             cq.append(c)
                         else:
-                        # XXX these are copy/pasted and need to be condensed
-                            if fo._preftag:
-                                for ftup in allf:
-                                    if c in ftup[2]:
-                                        log.info('replacing %s with preferred'\
-                                             ' tag %s' % (ftup[0], fo._f))
-                                        allf.remove(ftup)
-                                        break
-                                else:
-                                    die("BUG: couldn't find dup chp "\
-                                        "when replacing with pref tag", \
-                                        lvl='critical')
+                            act = check_preftags(c, cq, fo, allf, npref, False)
+                            if act == 'break'   : break
+                            if act == 'continue':
+                                # always npref, continue is simply explicit
                                 cq.append(c)
                                 continue
-                            elif not fo._npreftag and npref:
-                                for t in npref:
-                                    if c in t[2]:
-                                        tup = t ; break
-                                else:
-                                    log.warning('dup vol and chps seen')
-                                    break
-                                log.info('replacing nonpreferred %s '\
-                                         'with %s' % (tup[0], fo._f))
-                                allf.remove(tup)
-                                npref.remove(tup)
-                                cq.append(c)
         if vq:
             log.info('found vol %s ' % str(vq))
         if cq:
