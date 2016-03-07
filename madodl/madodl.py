@@ -747,7 +747,7 @@ def common_elem(iter1, iter2):
     assert iter1 and iter2
     loc1 = iter1 ; loc2 = chain.from_iterable(iter2)
     for elem in loc1:
-        if elem in loc2
+        if elem in loc2:
             yield elem
 
     return
