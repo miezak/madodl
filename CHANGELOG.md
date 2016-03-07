@@ -1,3 +1,14 @@
+## [v0.1.0a5] - 2016-03-07
+### Added
+* `prefer` and `not prefer` tag filter logic.
+
+### Changed
+* Rewrite match\_dir() recursively.
+* Remove extraneous backslashes from code.
+
+### Fixed
+* Various volume and chapter selection fixes.
+
 ## [v0.1.0a4] - 2016-02-26
 ### Added
 * Output the title of the series currently being downloaded in the curses output
@@ -43,6 +54,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.1.0a5]: https://github.com/miezak/madodl/compare/v0.1.0a4...v0.1.0a5
 [v0.1.0a4]: https://github.com/miezak/madodl/compare/v0.1.0a3...v0.1.0a4
 [v0.1.0a3]: https://github.com/miezak/madodl/compare/v0.1.0a2...v0.1.0a3
 [v0.1.0a2]: https://github.com/miezak/madodl/compare/v0.1.0a1...v0.1.0a2
