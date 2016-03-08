@@ -902,7 +902,6 @@ def walk_thru_listing(req, title, dir_ls):
                         else:
                             act = check_preftags(fov, vq, fo, allf, npref, True)
                             if isinstance(act, str):
-                                log.info('ACT '+act)
                                 if fo._preftag:
                                     apnd = True
                                 if act == 'break'   : break
@@ -1398,6 +1397,7 @@ def main_loop(manga_list):
 # - handle sub-directories in file listing
 # - extension filters
 # - allow greedy v/c matching
+# - add -p switch
 #
 def main():
     try:
