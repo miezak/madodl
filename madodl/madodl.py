@@ -731,7 +731,7 @@ def search_exact(name='',ml=False):
     log.info('ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
     gconf._cururl = \
     os.path.join('https://', loc['DOMAIN'], ml, path) + name
-    c.setopt(c.URL, 'ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
+    c.setopt(c.URL, 'ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
     c.perform()
     c.close()
     return buf
@@ -1296,7 +1296,7 @@ def get_listing(manga):
                     jobj = o['contents'] ; break
             global mlow
             mlow = manga.lower()
-            mdir, title = match_dir(iter({d1,d2,d3}), jobj) or badret
+            mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
             if not mdir:
                 log.warning("couldn't find title in JSON file. Trying "
                             "online query.")
