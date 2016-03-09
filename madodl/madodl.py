@@ -142,7 +142,7 @@ def check_curl_error(h, fh, exp=False):
     res = h.getinfo(h.RESPONSE_CODE)
     if exp:
         fh.truncate()
-        if res in (0, 200):
+        if res in {0, 200}:
             raise
         msg = hdrs['retstr'] if hdrs['retstr'] \
         else 'HTTP res: %d' % res
@@ -151,7 +151,7 @@ def check_curl_error(h, fh, exp=False):
         fh.truncate()
         if res == 401:
             msg = 'Bad user/password.'              \
-            if '' not in (gconf._user, gconf._pass) \
+            if '' not in {gconf._user, gconf._pass} \
             else 'Insufficient authentication information given.'
         else:
             msg = hdrs['retstr']
@@ -254,9 +254,9 @@ class ParseCommon:
 
     def eat_delim(self, norng=False):
         self._idx += 1
-        typtuple = ('DLM',) if norng else ('DLM', 'RNG')
+        typset = {'DLM',} if norng else {'DLM', 'RNG'}
         while self._idx < len(self._alltoks):
-            if self._alltoks[self._idx]['typ'] in typtuple:
+            if self._alltoks[self._idx]['typ'] in typset:
                 if not norng and self._alltoks[self._idx]['typ'] == 'RNG':
                     self.regex_mismatch('DLM', 'RNG')
                     self._idx += 1
@@ -471,7 +471,7 @@ class ParseFile(ParseCommon):
                     self.regex_mismatch('DAT', 'NUM')
                 else:
                     wildnums.append(self._alltoks[nidx])
-            elif t in ('PLT', 'PRE', 'PRL', 'ART'):
+            elif t in {'PLT', 'PRE', 'PRL', 'ART'}:
                 # shouldn't have vol/chp
                 if self._vols or self._chps:
                     self.regex_mismatch('DAT', 't')
@@ -487,22 +487,22 @@ class ParseFile(ParseCommon):
             elif t == 'ALL':
                 self._all = True
             elif t == 'GRB':
-                if self.get_tok_typ(self._idx+1) not in ('VOL', 'CHP', 'ALL',
+                if self.get_tok_typ(self._idx+1) not in {'VOL', 'CHP', 'ALL',
                                               'OMK', 'PLT', 'PRE',
-                                              'PRL', 'ART'):
+                                              'PRL', 'ART'}:
                     self._idx += 1
                     if (self.cur_tok_typ() == 'NUM' and
                        self.get_tok_typ(self._idx+1) != 'DAT'):
                         continue
                     tmptag = ''
-                    while self.cur_tok_typ() not in ('GRE', None):
+                    while self.cur_tok_typ() not in {'GRE', None}:
                         tmptag += str(self.cur_tok_val())
                         self._idx += 1
                     if self.cur_tok_val() == None:
                         die('BUG: tag matching couldn`t find GRE')
                     if tmptag[:len(title)].lower().strip() == title.lower():
                         if (self.get_tok_typ(self._idx-1) in
-                            ('PLT', 'PRE', 'PRO', 'PRL', 'ART', 'OMK')):
+                            {'PLT', 'PRE', 'PRO', 'PRL', 'ART', 'OMK'}):
                             continue # non-group tag with title in text
                     self._tag.append(tmptag)
             elif t == 'DAT':
@@ -585,7 +585,7 @@ class ParseRequest(ParseCommon):
                     raise RuntimeError('bad char %s' % val)
                 self._alltoks.append({'typ' : typ, 'val' : val})
             what = self.get_tok_typ(0)
-            if what not in ('VOL', 'CHP'):
+            if what not in {'VOL', 'CHP'}:
                 if what != 'NUM':
                     raise RuntimeError('bad vol/ch format')
                 else:
@@ -672,7 +672,7 @@ class ParseQuery(HTMLParser):
         if tag == 'h1':
             self.h1b = True
         elif tag == 'div':
-            if ('class', 'container') in attr:
+            if {'class', 'container'} in attr:
                 self.contb = True
         if tag == 'a' and self.prev == 'td' and self.contb and not self.conte:
             self.cont_td = True
@@ -1209,13 +1209,13 @@ def init_config():
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
             gconf._alltags = alltags
-            binopt = (True, False)
+            binopt = {True, False}
             set_simple_opt(yh, 'no_output', binopt, False)
             set_simple_opt(yh, 'logfile', None, None)
             if gconf._logfile:
                 set_simple_opt(yh, 'loglevel', ('verbose', 'debug', 'all'),
                                'verbose')
-                if gconf._loglevel in ('debug', 'all'):
+                if gconf._loglevel in {'debug', 'all'}:
                     loglvl = logging.DEBUG
                 else:
                     loglvl = logging.INFO
