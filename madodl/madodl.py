@@ -68,14 +68,14 @@ def curl_hdr(hdr_line):
     hdrs[name.lower()] = val
 
 def curl_debug(dbg_type, dbg_msg):
-    log.debug("%d: %s" % (dbg_type, dbg_msg.decode('iso-8859-1')))
+    log.debug("{}: {}".format(dbg_type, dbg_msg.decode('iso-8859-1')))
 
 def curl_common_init(buf):
     handle = pycurl.Curl()
     handle.setopt(pycurl.WRITEDATA, buf)
     handle.setopt(pycurl.HEADERFUNCTION, curl_hdr)
     handle.setopt(pycurl.DEBUGFUNCTION, curl_debug)
-    handle.setopt(pycurl.USERPWD, '%s:%s' % (gconf._user, gconf._pass))
+    handle.setopt(pycurl.USERPWD, '{}:{}'.format(gconf._user, gconf._pass))
     handle.setopt(pycurl.FOLLOWLOCATION, True)
     handle.setopt(pycurl.VERBOSE, True)
     return handle
@@ -100,20 +100,20 @@ def curl_json_list(fname, isf=False):
     #c.setopt(c.ACCEPT_ENCODING, 'gzip')
     c.setopt(c.USE_SSL, True)
     c.setopt(c.SSL_VERIFYPEER, False)
-    c.setopt(c.URL, 'https://'+loc['DOMAIN']+loc['API']+'dumbtree')
+    c.setopt(c.URL, 'https://{}{}dumbtree'.format(loc['DOMAIN'], loc['API']))
     log.info('curling JSON tree...')
     c.perform()
     c.close()
 
 def conv_bytes(bvar):
     if bvar / 1024**3 >= 1:
-        ret = str(round((bvar / 1024**3), 2)) + ' GB'
+        ret = ''.join([round((bvar / 1024**3), 2), ' GB'])
     elif bvar / 1024**2 >= 1:
-        ret = str(round((bvar / 1024**2), 2)) + ' MB'
+        ret = ''.join([round((bvar / 1024**2), 2), ' MB'])
     elif bvar / 1024 >= 1:
-        ret = str(round((bvar / 1024), 2)) + ' KB'
+        ret = ''.join([round((bvar / 1024), 2), ' KB'])
     else:
-        ret = str(bvar) + ' B'
+        ret = ''.join([bvar, ' B'])
 
     return ret
 
@@ -133,8 +133,9 @@ def curl_progress(ttdl, tdl, ttul, tul):
     # working for me
     gconf._stdscr.addstr(2, 0, ' '*gconf._COLS)
     gconf._stdscr.refresh()
-    gconf._stdscr.addstr(2, 0, 'size %s | downloaded %s | speed %s'
-                     % (gconf._fsz, tdl_conv, dls_conv))
+    gconf._stdscr.addstr(2, 0,
+        'size {} | downloaded {} | speed {}'.format(gconf._fsz, tdl_conv,
+                                                    dls_conv))
     gconf._stdscr.refresh()
     gconf._lastdl = tdl
 
@@ -145,7 +146,7 @@ def check_curl_error(h, fh, exp=False):
         if res in {0, 200}:
             raise
         msg = hdrs['retstr'] if hdrs['retstr'] \
-        else 'HTTP res: %d' % res
+        else 'HTTP res: {}'.format(res)
         raise RuntimeError(msg)
     if res != 200:
         fh.truncate()
@@ -169,7 +170,8 @@ def curl_to_file(fname):
                  urllib.parse.quote(fname)))
         c.setopt(c.NOPROGRESS, False)
         c.setopt(c.XFERINFOFUNCTION, curl_progress)
-        try: c.perform()
+        try:
+            c.perform()
         except pycurl.error:
             check_curl_error(c, fh, True)
         check_curl_error(c, fh)
@@ -179,7 +181,8 @@ def curl_to_buf(url):
     buf = BytesIO()
     c = curl_common_init(buf)
     c.setopt(c.URL, url)
-    try: c.perform()
+    try:
+        c.perform()
     except pycurl.error:
         check_curl_error(c, buf, True)
     check_curl_error(c, buf)
@@ -245,8 +248,8 @@ class ParseCommon:
         return True
 
     def regex_mismatch(self, goodt, badt, uidx=False):
-        log.warning('regex falsely picked up %s token as %s. '
-                    'Replacing type.' % (goodt, badt))
+        log.warning('regex falsely picked up {} token as {}. '
+                    'Replacing type.'.format(goodt, badt))
         if uidx is not False:
             self._alltoks[uidx]['typ'] = goodt
         else:
@@ -358,7 +361,7 @@ class ParseFile(ParseCommon):
         wildnums = []
         while self._idx < len(self._alltoks):
             t = self.cur_tok_typ()
-            log.debug(str(self._idx)+' '+t)
+            log.debug('{} {}'.format(self._idx, t))
             if t == 'VOL':
                 self.last = True
                 if not self.seenvol:
@@ -506,7 +509,7 @@ class ParseFile(ParseCommon):
                             continue # non-group tag with title in text
                     self._tag.append(tmptag)
             elif t == 'DAT':
-                self._title += self.cur_tok_val()
+                ''.join([self._title, self.cur_tok_val()])
                 if self.get_tok_val(self._idx+1) == ' ':
                     self._title += ' '
 
@@ -582,7 +585,7 @@ class ParseRequest(ParseCommon):
                 typ = t.lastgroup
                 val = t.group(typ)
                 if typ == 'BAD':
-                    raise RuntimeError('bad char %s' % val)
+                    raise RuntimeError('bad char {}'.format(val))
                 self._alltoks.append({'typ' : typ, 'val' : val})
             what = self.get_tok_typ(0)
             if what not in {'VOL', 'CHP'}:
@@ -596,7 +599,7 @@ class ParseRequest(ParseCommon):
                         tmp[idx+1] = self._alltoks[idx]
                     self._alltoks = tmp
             elif len(self._alltoks) == 1 or self.get_tok_typ(1) != 'NUM':
-                raise RuntimeError('no number specified for %s' % what)
+                raise RuntimeError('no number specified for {}'.format(what))
             self.last = True if what == 'VOL' else False
             prev = []
             for idx in range(1, len(self._alltoks)):
@@ -618,19 +621,19 @@ class ParseRequest(ParseCommon):
             while idx < len(self._alltoks)+1:
                 typ = self.cur_tok_typ()
                 val = self.cur_tok_val()
-                log.debug(str(typ)+' '+str(val))
+                log.debug('{} {}'.format(typ, val))
                 if typ is None: break
                 if typ == 'RNG':
                     if self._idx == len(self._alltoks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
-                            raise RuntimeError('bad range for %s' % what)
+                            raise RuntimeError('bad range for {}'.format(what))
                         else:
                             self.push_to_last(self.ALL)
                             break
                     if ((self.get_tok_typ(self._idx-1) != 'NUM' and
                          self.get_tok_typ(self._idx+1) != 'NUM') or
                          self.get_tok_typ(self._idx+1) == 'COM'):
-                        raise RuntimeError('bad range for %s' % what)
+                        raise RuntimeError('bad range for {}'.format(what))
                     st = int(self.get_tok_val(self._idx-1))+1
                     end = float(self.get_tok_val(self._idx+1))
                     for n in range(st, int(end)+1):
@@ -722,10 +725,10 @@ def search_exact(name='',ml=False):
     c.setopt(c.DIRLISTONLY, True)
     c.setopt(c.USE_SSL, True)
     c.setopt(c.SSL_VERIFYPEER, False)
-    c.setopt(c.USERPWD, loc['USER']+':'+loc['PASS'])
+    c.setopt(c.USERPWD, '{}:{}'.format(loc['USER'], loc['PASS']))
     c.setopt(c.PORT, loc['FTPPORT'])
     ml = loc['MLOC'] if not ml else ''
-    log.info('ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
+    log.info('ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
     gconf._cururl = \
     os.path.join('https://', loc['DOMAIN'], ml, path) + name
     c.setopt(c.URL, 'ftp://'+loc['DOMAIN']+ml+path+'/'+name+'/')
@@ -734,7 +737,8 @@ def search_exact(name='',ml=False):
     return buf
 
 def search_query(name=''):
-    return curl_to_buf('https://'+loc['DOMAIN']+loc['SEARCH']+name)
+    return curl_to_buf('https://{}{}{}'.format(loc['DOMAIN'], loc['SEARCH'],
+                                               name))
 
 ## Helper Functions ##
 
@@ -776,8 +780,8 @@ def apply_tag_filters(f, title, cv, cc):
                 if c in cc:
                     break
             else: continue
-        log.info('N '+t._name+' '+t._filter+' '+t._case+' '+str(tlow))
-        log.info('NN '+str(t._name.lower() in tlow))
+        log.info('N {} {} {} {}'.format(t._name, t._filter, t._case, tlow))
+        log.info('NN {}'.format([t._name.lower() in tlow]))
         if t._name.lower() in tlow:
             if ((t._case == 'exact' and t._name not in f._tag) or
                (t._case == 'upper' and t._name not in
@@ -810,14 +814,14 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
     if fo._preftag:
             for ftup in allf:
                 if vc in ftup[ftupidx]:
-                    log.info('replacing %s with preferred'
-                             ' tag %s' % (ftup[0], fo._f))
+                    log.info('replacing {} with preferred'
+                             ' tag {}'.format(ftup[0], fo._f))
                     allf.remove(ftup)
                     vcq.extend(whatls)
                     return 'break'
             else:
-                die("BUG: couldn't find any dup %s in %s "
-                    "when replacing with pref tag" % (what, whatls),
+                die("BUG: couldn't find any dup {} in {} "
+                    "when replacing with pref tag".format(what, whatls),
                     lvl='critical')
     elif not fo._npreftag and npref:
         for t in npref:
@@ -826,8 +830,8 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
         else:
             log.warning('dup vol and chps seen')
             return 'break'
-        log.info('replacing nonpreferred %s '
-                 'with %s' % (tup[0], fo._f))
+        log.info('replacing nonpreferred {} '
+                 'with {}'.format(tup[0], fo._f))
         allf.remove(tup)
         npref.remove(tup)
         return 'continue'
@@ -870,14 +874,14 @@ def walk_thru_listing(req, title, dir_ls):
             continue # a common sub-dir
         fo = ParseFile(f, title)
         if not apply_tag_filters(fo, title, compv, compc):
-            log.info('** filtered out ' + fo._f)
+            log.info('** filtered out {}'.format(fo._f))
             continue
         vq = [] ; cq = []
         apnd = False
         if fo._all and req._all:
             # XXX need pref filt handling here
             log.info('found complete archive')
-            log.info('file - %s' % f)
+            log.info('file - {}'.format(f))
             compfile = f
             break
         elif req._all and not req._vols:
@@ -972,14 +976,14 @@ def walk_thru_listing(req, title, dir_ls):
                                 cq.append(c)
                                 continue
         if vq:
-            log.info('found vol %s ' % str(vq))
+            log.info('found vol {}'.format(vq))
         if cq:
-            log.info('found chp %s ' % str(cq))
+            log.info('found chp {}'.format(cq))
         if vq or cq:
             if fo._npreftag:
                 npref.append((f, vq, cq))
             allf.append((f, vq, cq))
-            log.info('file - %s' % f)
+            log.info('file - {}'.format(f))
         compv.extend(vq)
         compc.extend(cq)
         rm_req_elems(reqv_cpy, vq)
@@ -992,7 +996,8 @@ def walk_thru_listing(req, title, dir_ls):
 
 def _(msg, file=sys.stderr, **kwargs):
     if not gconf._no_output:
-        print('%s: %s' % (os.path.basename(__file__), msg), file=file, **kwargs)
+        print('{}: {}'.format(os.path.basename(__file__), msg), file=file,
+                              **kwargs)
 
 def init_args():
 
@@ -1003,14 +1008,14 @@ def init_args():
                 os.makedirs(f)
             except PermissionError:
                 raise argparse.ArgumentTypeError('Insufficient permissions to '
-                    'create %s directory.' % f)
+                    'create {} directory.'.format(f))
             except NotADirectoryError:
                 raise argparse.ArgumentTypeError('Non-directory in path.')
         elif not os.path.isdir(f):
-            raise argparse.ArgumentTypeError('%s is not a directory.' % f)
+            raise argparse.ArgumentTypeError('{} is not a directory.'.format(f))
         elif not os.access(f, os.R_OK | os.W_OK | os.X_OK):
             raise argparse.ArgumentTypeError(
-                'Insufficient permissions to write to %s directory.' % f)
+                'Insufficient permissions to write to {} directory.'.format(f))
         if f[-1] != os.sep:
             f += os.sep
 
@@ -1137,10 +1142,10 @@ def init_config():
             if 'for' not in self._tag:
                 self._for = self.DEFAULT_FOR
             if self._case not in self.VALID_CASE:
-                log.error('bad case value for %s' % self._tag['name'])
+                log.error('bad case value for {}'.format(self._tag['name']))
                 self._case = self.DEFAULT_CASE
             if self._filter not in self.VALID_FILTER:
-                log.error('bad filter value for %s' % self._tag['name'])
+                log.error('bad filter value for {}'.format(self._tag['name']))
                 self._filter = self.DEFAULT_FILTER
             if self._for == 'all' or self._tag['for'] in ('all',['all']):
                 return
@@ -1158,16 +1163,16 @@ def init_config():
     def set_simple_opt(yh, opt, vals, default):
         if opt in yh:
             if not yh[opt]:
-               setattr(gconf, '_'+opt, default)
+               setattr(gconf, '_{}'.format(opt), default)
             elif default is None and not vals:
-                setattr(gconf, '_'+opt, yh[opt])
+                setattr(gconf, '_{}'.format(opt), yh[opt])
             elif yh[opt] in vals:
-                setattr(gconf, '_'+opt, yh[opt])
+                setattr(gconf, '_{}'.format(opt), yh[opt])
             else:
-                log.error('bad config value for %s' % opt)
-                setattr(gconf, '_'+opt, default)
+                log.error('bad config value for {}'.format(opt))
+                setattr(gconf, '_{}'.format(opt), default)
         else:
-            setattr(gconf, '_'+opt, default)
+            setattr(gconf, '_{}'.format(opt), default)
 
     h = os.path.expanduser('~')
     gconf._home = h
@@ -1204,7 +1209,8 @@ def init_config():
             yh = yaml.safe_load(cf)
             for opt in yh.keys():
                 if opt not in VALID_OPTS:
-                    raise RuntimeError('bad option `%s` in config file' % opt)
+                    raise RuntimeError('bad option `{}` in config file'
+                                       .format(opt))
             if 'tags' in yh and yh['tags']:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
@@ -1213,7 +1219,7 @@ def init_config():
             set_simple_opt(yh, 'no_output', binopt, False)
             set_simple_opt(yh, 'logfile', None, None)
             if gconf._logfile:
-                set_simple_opt(yh, 'loglevel', ('verbose', 'debug', 'all'),
+                set_simple_opt(yh, 'loglevel', {'verbose', 'debug', 'all'},
                                'verbose')
                 if gconf._loglevel in {'debug', 'all'}:
                     loglvl = logging.DEBUG
@@ -1237,7 +1243,7 @@ def init_config():
                 set_simple_opt(yh, 'pass', None, None)
             else: gconf._pass = None
         except yaml.YAMLError as e:
-            log.error('config file error: %s' % str(e))
+            log.error('config file error: {}'.format(e))
 
 class breaks(object):
 # Great idea from:
@@ -1290,15 +1296,15 @@ def get_listing(manga):
                     jobj = o['contents'] ; break
             global mlow
             mlow = manga.lower()
-            mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
+            mdir, title = match_dir(iter({d1,d2,d3}), jobj) or badret
             if not mdir:
                 log.warning("couldn't find title in JSON file. Trying "
                             "online query.")
                 raise breaks.Break
-            gconf._cururl = 'https://' + loc['DOMAIN'] + loc['MLOC'] \
-                + d1 + '/' + d2 + '/' + d3 + '/' + title
+            gconf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
+                                            loc['MLOC'], d1, d2, d3, title)
             dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
-            log.info('\n-----\n'+dirls+'-----')
+            log.info('\n-----\n{}-----'.format(dirls))
             return (dirls, title)
     qout = search_query(manga).getvalue().decode()
     qp = ParseQuery()
@@ -1316,7 +1322,7 @@ def get_listing(manga):
     if qp.mresultnum == 0:
         die('manga not found')
     if qp.mresultnum > 1:
-        print('Multiple matches found. Please choose from the '\
+        print('Multiple matches found. Please choose from the '
               'selection below:\n')
         i = 1
         for url, f in qp.mresults:
@@ -1327,7 +1333,7 @@ def get_listing(manga):
             try:
                 ch = int(input('choice > '))
                 if ch in range(1, i): break
-                print('Pick a number between 1 and %d' % (i-1))
+                print('Pick a number between 1 and {}'.format(i-1))
             except ValueError:
                 print('Invalid input.')
         m = qp.mresults[ch-1][0]
@@ -1335,10 +1341,10 @@ def get_listing(manga):
     else:
         m = qp.mresults[0][0]
         title = os.path.basename(qp.mresults[0][1])
-        _('one match found: %s' % title)
+        _('one match found: {}'.format(title))
     dirls = search_exact(m, True).getvalue().decode()
 
-    log.info('\n-----\n'+dirls+'-----')
+    log.info('\n-----\n{}-----'.format(dirls))
     return (dirls, title)
 
 def main_loop(manga_list):
@@ -1372,8 +1378,10 @@ def main_loop(manga_list):
                         for f,v,c in allf:
                             #log.info('DL ' + f)
                             gconf._stdscr.erase()
-                            gconf._stdscr.addstr(0, 0, 'title - %s' % title)
-                            gconf._stdscr.addstr(1, 0, 'current - %s' % f)
+                            gconf._stdscr.addstr(0, 0, 'title - {}'
+                                                       .format(title))
+                            gconf._stdscr.addstr(1, 0, 'current - {}'
+                                                       .format(f))
                             gconf._stdscr.refresh()
                             curl_to_file(f)
                 except:
