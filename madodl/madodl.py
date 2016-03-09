@@ -107,13 +107,13 @@ def curl_json_list(fname, isf=False):
 
 def conv_bytes(bvar):
     if bvar / 1024**3 >= 1:
-        ret = ''.join([round((bvar / 1024**3), 2), ' GB'])
+        ret = ''.join([str(round((bvar / 1024**3), 2)), ' GB'])
     elif bvar / 1024**2 >= 1:
-        ret = ''.join([round((bvar / 1024**2), 2), ' MB'])
+        ret = ''.join([str(round((bvar / 1024**2), 2)), ' MB'])
     elif bvar / 1024 >= 1:
-        ret = ''.join([round((bvar / 1024), 2), ' KB'])
+        ret = ''.join([str(round((bvar / 1024), 2)), ' KB'])
     else:
-        ret = ''.join([bvar, ' B'])
+        ret = ''.join([str(bvar), ' B'])
 
     return ret
 
