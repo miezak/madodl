@@ -675,7 +675,7 @@ class ParseQuery(HTMLParser):
         if tag == 'h1':
             self.h1b = True
         elif tag == 'div':
-            if {'class', 'container'} in attr:
+            if ('class', 'container') in attr:
                 self.contb = True
         if tag == 'a' and self.prev == 'td' and self.contb and not self.conte:
             self.cont_td = True
