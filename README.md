@@ -94,12 +94,12 @@ $ madodl -m berserk v3,4,c150-165
 ```
 
 `madodl` tries to be flexible about ranges. For example, if a range is
-non-increasing, the start and end will be switched around:
+non-increasing, the end will be interpreted in the same magnitude as the start.
 
 ```
 v10-5
 # will be seen as
-v5-10
+v10-15
 ```
 Also, the numbers need not be in increasing order:
 ```

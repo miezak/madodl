@@ -601,21 +601,6 @@ class ParseRequest(ParseCommon):
             elif len(self._alltoks) == 1 or self.get_tok_typ(1) != 'NUM':
                 raise RuntimeError('no number specified for {}'.format(what))
             self.last = True if what == 'VOL' else False
-            prev = []
-            for idx in range(1, len(self._alltoks)):
-                typ = self.get_tok_typ(idx)
-                if typ == 'NUM':
-                    if prev:
-                        tmpv = self.get_tok_val(idx)[:]
-                        tmpm = min(prev)
-                        if tmpv < tmpm:
-                            self.set_tok_val(minidx, tmpv)
-                            self.set_tok_val(idx, tmpm)
-                            minidx = idx
-                            prev.append(tmpv)
-                    else:
-                        prev.append(self.get_tok_val(idx))
-                        minidx = idx
             tokcpy = self._alltoks[:]
             self._idx = idx = 1
             while idx < len(self._alltoks)+1:
@@ -634,8 +619,11 @@ class ParseRequest(ParseCommon):
                          self.get_tok_typ(self._idx+1) != 'NUM') or
                          self.get_tok_typ(self._idx+1) == 'COM'):
                         raise RuntimeError('bad range for {}'.format(what))
-                    st = int(self.get_tok_val(self._idx-1))+1
+                    st = int(float(self.get_tok_val(self._idx-1)))
                     end = float(self.get_tok_val(self._idx+1))
+                    if st > end:
+                        end += st
+                    st += 1
                     for n in range(st, int(end)+1):
                         self.push_to_last(float(n))
                     if end % 1:
