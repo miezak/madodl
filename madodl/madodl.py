@@ -886,13 +886,14 @@ def walk_thru_listing(req, title, dir_ls):
                         continue
                     cq = [] ; break
         # TODO: add vol greedy match here
-        too_many_vols = False
-        for v in fo._vols:
-            if v not in req._chps:
-                too_many_vols = True
-                break
-        if too_many_vols:
-            continue
+        if not any({oerng_v, req._all}):
+            too_many_vols = False
+            for v in fo._vols:
+                if v not in req._vols:
+                    too_many_vols = True
+                    break
+            if too_many_vols:
+                continue
         for fov in fo._vols:
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
@@ -960,9 +961,10 @@ def walk_thru_listing(req, title, dir_ls):
                         cq.extend(fo._chps)
             else:
                 # TODO: add chp greedy match here
-                for c in fo._chps:
-                    if c not in req._chps:
-                        break
+                if not req._all:
+                    for c in fo._chps:
+                        if c not in req._chps:
+                            break
                 else:
                     for c in req._chps:
                         if (req._all or c in fo._chps) and c not in cq:
