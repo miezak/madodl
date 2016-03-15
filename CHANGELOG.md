@@ -4,8 +4,13 @@
 
 ### Changed
 * Change how non-increasing ranges are handled.
+* Allow for a fractional in the range opening for requests.
+* Always use template strings over the old-style \`%\` operator for string formatting.
 * Several optimizations.
 * Removed a verbose message leftover from testing.
+
+### Fixed
+* Fix a bug in ParseRequest() where chapters were being incorrectly converted to numbers.
 
 ## [v0.1.0a5] - 2016-03-07
 ### Added
