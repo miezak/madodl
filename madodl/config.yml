@@ -20,6 +20,7 @@
 #            prefer -> prefer this tag over others
 #            not prefer -> prefer other tags over this one
 #         DEFAULT -> prefer
+# !! NOTE: the `for` sub-option is not yet implemented!
 # for .. list of manga this rule applies to
 #  value .. name [volume/chapter list]
 #        DEFAULT -> all
