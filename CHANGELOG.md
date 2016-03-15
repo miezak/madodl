@@ -1,3 +1,8 @@
+## [v0.1.1] - 2015-03-15
+### Fixed
+* ParseFile() chapter range (with no prefix) bug fix.
+* Fix volume overmatch checking regression from v0.1.0
+
 ## [v0.1.0] - 2015-03-15
 ### Added
 * Add a note in `config.yml` about the `for` suboption.
@@ -68,6 +73,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.1.1]: https://github.com/miezak/madodl/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/miezak/madodl/compare/v0.1.0a5...v0.1.0
 [v0.1.0a5]: https://github.com/miezak/madodl/compare/v0.1.0a4...v0.1.0a5
 [v0.1.0a4]: https://github.com/miezak/madodl/compare/v0.1.0a3...v0.1.0a4
