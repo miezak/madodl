@@ -1,3 +1,12 @@
+## [v0.1.0] - 2015-03-15
+### Added
+* Add a note in `config.yml` about the `for` suboption.
+
+### Changed
+* Change how non-increasing ranges are handled.
+* Several optimizations.
+* Removed a verbose message leftover from testing.
+
 ## [v0.1.0a5] - 2016-03-07
 ### Added
 * `prefer` and `not prefer` tag filter logic.
@@ -54,6 +63,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.1.0]: https://github.com/miezak/madodl/compare/v0.1.0a5...v0.1.0
 [v0.1.0a5]: https://github.com/miezak/madodl/compare/v0.1.0a4...v0.1.0a5
 [v0.1.0a4]: https://github.com/miezak/madodl/compare/v0.1.0a3...v0.1.0a4
 [v0.1.0a3]: https://github.com/miezak/madodl/compare/v0.1.0a2...v0.1.0a3
