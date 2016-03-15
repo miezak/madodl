@@ -885,6 +885,14 @@ def walk_thru_listing(req, title, dir_ls):
                         cq.append(c)
                         continue
                     cq = [] ; break
+        # TODO: add vol greedy match here
+        too_many_vols = False
+        for v in fo._vols:
+            if v not in req._chps:
+                too_many_vols = True
+                break
+        if too_many_vols:
+            continue
         for fov in fo._vols:
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
@@ -939,7 +947,6 @@ def walk_thru_listing(req, title, dir_ls):
                     if i <= rmax:
                         cq.append(float(i))
                     else: break
-        #if len(fo._chps) == 1: # only a single chp
         if req._chps:
             if oerng_c and fo._chps and min(fo._chps) >= oest_c:
                 for c in fo._chps:
@@ -952,17 +959,23 @@ def walk_thru_listing(req, title, dir_ls):
                     if fo._chps and min(fo._chps) >= oest_c:
                         cq.extend(fo._chps)
             else:
-                for c in req._chps:
-                    if (req._all or c in fo._chps) and c not in cq:
-                        if c not in compc:
-                            cq.append(c)
-                        else:
-                            act = check_preftags(c, cq, fo, allf, npref, False)
-                            if act == 'break'   : break
-                            if act == 'continue':
-                                # always npref, continue is simply explicit
+                # TODO: add chp greedy match here
+                for c in fo._chps:
+                    if c not in req._chps:
+                        break
+                else:
+                    for c in req._chps:
+                        if (req._all or c in fo._chps) and c not in cq:
+                            if c not in compc:
                                 cq.append(c)
-                                continue
+                            else:
+                                act = check_preftags(c, cq, fo, allf, npref,
+                                                     False)
+                                if act == 'break'   : break
+                                if act == 'continue':
+                                    # always npref, continue is simply explicit
+                                    cq.append(c)
+                                    continue
         if vq:
             log.info('found vol {}'.format(vq))
         if cq:
@@ -1016,7 +1029,7 @@ def init_args():
 
     args_parser = \
     argparse.ArgumentParser(description='Download manga from madokami.',
-                            usage='%(prog)s [-dhsv] [-p ident val ...] '
+                            usage='%(prog)s [-dhsv] '
                                             '-m manga '
                                             '[volume(s)] [chapter(s)] ... '
                                             '[-o out-dir]')
