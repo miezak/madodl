@@ -461,7 +461,7 @@ class ParseFile(ParseCommon):
                         self.regex_mismatch('DAT', 'NUM', nidx)
                         self.regex_mismatch('DAT', 'RNG')
                         self._idx += 1 ; continue
-                    st = self.cur_tok_val()
+                    st = self.get_tok_val(nidx)
                     self._alltoks[nidx]['val'] = tmprng = []
                     tmprng.append(st)
                     rngb = int(st) + 1
@@ -886,7 +886,7 @@ def walk_thru_listing(req, title, dir_ls):
                         continue
                     cq = [] ; break
         # TODO: add vol greedy match here
-        if not any({oerng_v, req._all}):
+        if req._vols and not any({oerng_v, req._all}):
             too_many_vols = False
             for v in fo._vols:
                 if v not in req._vols:
@@ -957,6 +957,7 @@ def walk_thru_listing(req, title, dir_ls):
                         if act == 'continue': continue
                         break
                 else:
+                    # XXX do we need to check min() again?
                     if fo._chps and min(fo._chps) >= oest_c:
                         cq.extend(fo._chps)
             else:
