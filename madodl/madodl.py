@@ -47,26 +47,12 @@ loc = {
 }
 
 # emulate struct
-class Struct:
-    pass
+class Struct: pass
 
 def die(msg, lvl='error', **kwargs):
     if lvl:
       getattr(log, lvl.lower())(msg, **kwargs)
     sys.exit(1)
-
-## Exceptions ##
-
-class CurlError(Exception):
-    pass
-
-class RequestError(Exception):
-    pass
-
-class ConfigError(Exception):
-    pass
-
-################
 
 hdrs = {}
 def curl_hdr(hdr_line):
@@ -161,7 +147,7 @@ def check_curl_error(h, fh, exp=False):
             raise
         msg = hdrs['retstr'] if hdrs['retstr'] \
         else 'HTTP res: {}'.format(res)
-        raise CurlError(msg)
+        raise RuntimeError(msg)
     if res != 200:
         fh.truncate()
         if res == 401:
@@ -170,7 +156,7 @@ def check_curl_error(h, fh, exp=False):
             else 'Insufficient authentication information given.'
         else:
             msg = hdrs['retstr']
-        raise CurlError(msg)
+        raise RuntimeError(msg)
 
 def curl_to_file(fname):
     gconf._fsz = 0
@@ -599,12 +585,12 @@ class ParseRequest(ParseCommon):
                 typ = t.lastgroup
                 val = t.group(typ)
                 if typ == 'BAD':
-                    raise RequestError('bad char {}'.format(val))
+                    raise RuntimeError('bad char {}'.format(val))
                 self._alltoks.append({'typ' : typ, 'val' : val})
             what = self.get_tok_typ(0)
             if what not in {'VOL', 'CHP'}:
                 if what != 'NUM':
-                    raise RequestError('bad vol/ch format')
+                    raise RuntimeError('bad vol/ch format')
                 else:
                     log.warning('No vol/ch prefix. Assuming volume.')
                     what = 'VOL'
@@ -613,7 +599,7 @@ class ParseRequest(ParseCommon):
                         tmp[idx+1] = self._alltoks[idx]
                     self._alltoks = tmp
             elif len(self._alltoks) == 1 or self.get_tok_typ(1) != 'NUM':
-                raise RequestError('no number specified for {}'.format(what))
+                raise RuntimeError('no number specified for {}'.format(what))
             self.last = True if what == 'VOL' else False
             tokcpy = self._alltoks[:]
             self._idx = idx = 1
@@ -625,14 +611,14 @@ class ParseRequest(ParseCommon):
                 if typ == 'RNG':
                     if self._idx == len(self._alltoks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
-                            raise RequestError('bad range for {}'.format(what))
+                            raise RuntimeError('bad range for {}'.format(what))
                         else:
                             self.push_to_last(self.ALL)
                             break
                     if ((self.get_tok_typ(self._idx-1) != 'NUM' and
                          self.get_tok_typ(self._idx+1) != 'NUM') or
                          self.get_tok_typ(self._idx+1) == 'COM'):
-                        raise RequestError('bad range for {}'.format(what))
+                        raise RuntimeError('bad range for {}'.format(what))
                     st = int(float(self.get_tok_val(self._idx-1)))
                     end = float(self.get_tok_val(self._idx+1))
                     if st > end:
@@ -1113,54 +1099,29 @@ def init_config():
     c = None
     alltags = []
     global gconf
-    VALID_OPTS = {
-        'tags'      ,
-        'no_output' ,
-        'logfile'   ,
-        'loglevel'  ,
-        'usecache'  ,
-        'cachefile' ,
-        'user'      ,
-        'pass'      ,
-    }
-    binopt = {True, False}
-    VALID_OPTVAL_NO_OUTPUT = binopt
-    VALID_OPTVAL_LOGFILE = None
-    VALID_OPTVAL_LOGLEVEL = {
-        'verbose' ,
-        'debug'   ,
-        'all'     ,
-    }
-    VALID_OPTVAL_USECACHE = binopt
-    VALID_OPTVAL_CACHEFILE = None
-    VALID_OPTVAL_DEFAULT_OUTDIR = None
-    VALID_OPTVAL_USER = None
-    VALID_OPTVAL_PASS = None
-
-    DEFAULT_OPTVAL_NO_OUTPUT = False
-    DEFAULT_OPTVAL_LOGFILE = None
-    DEFAULT_OPTVAL_LOGLEVEL = 'verbose'
-    DEFAULT_OPTVAL_USECACHE = False
-    # set after we get local $HOME
-    DEFAULT_OPTVAL_CACHEFILE = lambda h: os.path.join(h, '.cache', 'madodl',
-                                                      'files.json')
-    DEFAULT_OPTVAL_DEFAULT_OUTDIR = os.getcwd()
-    DEFAULT_OPTVAL_USER = None
-    DEFAULT_OPTVAL_PASS = None
-
+    VALID_OPTS = (
+        'tags',
+        'no_output',
+        'logfile',
+        'loglevel',
+        'usecache',
+        'cachefile',
+        'user',
+        'pass',
+    )
     class TagFilter:
-        VALID_CASE = {
+        VALID_CASE = (
             'lower' ,
             'upper' ,
             'any'   ,
             'exact' ,
-        }
-        VALID_FILTER = {
+        )
+        VALID_FILTER = (
             'only'       ,
             'out'        ,
             'prefer'     ,
             'not prefer' ,
-        }
+        )
         DEFAULT_CASE = 'any'
         DEFAULT_FILTER = 'prefer'
         DEFAULT_FOR = 'all'
@@ -1242,29 +1203,28 @@ def init_config():
         gconf._user = ''
         gconf._pass = ''
         gconf._alltags = ''
-        gconf._default_outdir = DEFAULT_OPTVAL_DEFAULT_OUTDIR
-        gconf._no_output = DEFAULT_OPTVAL_NO_OUTPUT
-        gconf._usecache = DEFAULT_OPTVAL_USECACHE
-        gconf._cachefile = DEFAULT_OPTVAL_CACHEFILE
+        gconf._default_outdir = os.getcwd()
+        gconf._no_output = False
+        gconf._usecache = False
+        gconf._cachefile = None
         return
     with open(c) as cf:
         try:
             yh = yaml.safe_load(cf)
             for opt in yh.keys():
                 if opt not in VALID_OPTS:
-                    raise ConfigError('bad option `{}` in config file'
+                    raise RuntimeError('bad option `{}` in config file'
                                        .format(opt))
             if 'tags' in yh and yh['tags']:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
             gconf._alltags = alltags
-            set_simple_opt(yh, 'no_output', VALID_OPTVAL_NO_OUTPUT,
-                           DEFAULT_OPTVAL_NO_OUTPUT)
-            set_simple_opt(yh, 'logfile', VALID_OPTVAL_LOGFILE,
-                           DEFAULT_OPTVAL_LOGFILE)
+            binopt = {True, False}
+            set_simple_opt(yh, 'no_output', binopt, False)
+            set_simple_opt(yh, 'logfile', None, None)
             if gconf._logfile:
-                set_simple_opt(yh, 'loglevel', VALID_OPTVAL_LOGLEVEL,
-                               DEFAULT_OPTVAL_LOGLEVEL)
+                set_simple_opt(yh, 'loglevel', {'verbose', 'debug', 'all'},
+                               'verbose')
                 if gconf._loglevel in {'debug', 'all'}:
                     loglvl = logging.DEBUG
                 else:
@@ -1275,25 +1235,19 @@ def init_config():
                 logfile_hdlr.setLevel(loglvl)
                 logfile_hdlr.addFilter(logfile_filter)
                 log.addHandler(logfile_hdlr)
-            else:
-                gconf._loglevel = None
-            set_simple_opt(yh, 'usecache', VALID_OPTVAL_USECACHE,
-                           DEFAULT_OPTVAL_USECACHE)
+            else: gconf._loglevel = None
+            set_simple_opt(yh, 'usecache', binopt, False)
             if gconf._usecache:
-                set_simple_opt(yh, 'cachefile', VALID_OPTVAL_CACHEFILE,
-                               DEFAULT_OPTVAL_CACHEFILE(h))
-            else:
-                gconf._cachefile = DEFAULT_OPTVAL_CACHEFILE
-            set_simple_opt(yh, 'default_outdir', VALID_OPTVAL_DEFAULT_OUTDIR,
-                           DEFAULT_OPTVAL_DEFAULT_OUTDIR)
-            set_simple_opt(yh, 'user', VALID_OPTVAL_USER, DEFAULT_OPTVAL_USER)
+                set_simple_opt(yh, 'cachefile', None,
+                           os.path.join(h, '.cache', 'madodl', 'files.json'))
+            else: gconf._cachefile = None
+            set_simple_opt(yh, 'default_outdir', None, os.getcwd())
+            set_simple_opt(yh, 'user', None, None)
             if gconf._user:
-                set_simple_opt(yh, 'pass', VALID_OPTVAL_USER,
-                               DEFAULT_OPTVAL_PASS)
-            else:
-                gconf._pass = DEFAULT_OPTVAL_PASS
-        except yaml.YAMLError as yerr:
-            log.error('config file error: {}'.format(yerr))
+                set_simple_opt(yh, 'pass', None, None)
+            else: gconf._pass = None
+        except yaml.YAMLError as e:
+            log.error('config file error: {}'.format(e))
 
 class breaks(object):
 # Great idea from:
