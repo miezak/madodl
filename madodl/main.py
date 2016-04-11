@@ -280,7 +280,7 @@ def walk_thru_listing(req, title, dir_ls):
             if None in {rmax, fomax} or rmax != fomax:
                 pass
             else:
-                iter_celems = _util.common_elem(req.chps, (cq, compc))
+                iter_celems = _util.common_elem(req._chps, (cq, compc))
                 for cclash in iter_celems:
                     check_preftags(cclash, cq, fo, allf, npref, False)
                 for i in req._chps:
