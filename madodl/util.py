@@ -7,7 +7,7 @@
 import re
 from itertools import chain
 
-import out as _out
+import madodl.out as _out
 
 def rm_req_elems(req, comp):
     for n in comp:

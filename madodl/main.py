@@ -21,12 +21,12 @@ import json
 
 def local_import():
     global _curl, _parsers, _util, _out
-    import curl    as _curl
-    import parsers as _parsers
-    import util    as _util
-    import out     as _out
+    import madodl.curl    as _curl
+    import madodl.parsers as _parsers
+    import madodl.util    as _util
+    import madodl.out     as _out
 
-from exceptions import *
+from madodl.exceptions import *
 
 if sys.hexversion < 0x30400f0:
     sys.stderr.write('madodl requires Python 3.4 or newer.\n')
@@ -781,7 +781,7 @@ def main():
     global _g
 
     try:
-        import gvars as _g
+        import madodl.gvars as _g
         _g.conf = Struct()
         args = init_args()
         init_config()

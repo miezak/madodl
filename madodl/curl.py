@@ -12,7 +12,7 @@ import time
 import pycurl
 import unicurses
 
-import gvars as _g
+import madodl.gvars as _g
 
 hdrs = {}
 def curl_hdr(hdr_line):

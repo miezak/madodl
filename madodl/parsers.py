@@ -8,8 +8,8 @@ import re
 import logging
 from html.parser import HTMLParser
 
-import out as _out
-import gvars as _g
+import madodl.out as _out
+import madodl.gvars as _g
 
 class ParseCommon:
     ''' ADDME '''

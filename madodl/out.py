@@ -6,7 +6,7 @@
 
 import os, sys
 
-import gvars as _g
+import madodl.gvars as _g
 
 def die(msg, lvl='error', **kwargs):
     if lvl:
