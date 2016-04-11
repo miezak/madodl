@@ -195,6 +195,7 @@ def walk_thru_listing(req, title, dir_ls):
     else: oerng_c = False
     reqv_cpy = req._vols[:]
     reqc_cpy = req._chps[:]
+    only_file = len(dir_ls.splitlines()) == 1
     for f in dir_ls.splitlines():
         # FIXME:
         # handle this in a more fail-safe manner.
@@ -206,9 +207,13 @@ def walk_thru_listing(req, title, dir_ls):
             continue
         vq = [] ; cq = []
         apnd = False
+        if only_file and not any((fo._vols, fo._chps, fo._all)):
+            # a single file with no prefix of anykind is most likely a complete
+            # entry.
+            fo._all = True
         if fo._all and req._all:
             # XXX need pref filt handling here
-            __g.log.info('found complete archive')
+            _g.log.info('found complete archive')
             _g.log.info('file - {}'.format(f))
             compfile = f
             break
@@ -768,8 +773,6 @@ def main_loop(manga_list):
 
 #
 # TODO:
-# - handle the case where a complete archive has no prefixes (and is probably
-#   the only file in the directory)
 # - handle sub-directories in file listing
 # - extension filters
 # - allow greedy v/c matching
