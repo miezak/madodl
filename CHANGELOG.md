@@ -1,9 +1,9 @@
-## [v0.1.1] - 2015-03-15
+## [v0.1.1] - 2016-03-15
 ### Fixed
 * ParseFile() chapter range (with no prefix) bug fix.
 * Fix volume overmatch checking regression from v0.1.0
 
-## [v0.1.0] - 2015-03-15
+## [v0.1.0] - 2016-03-15
 ### Added
 * Add a note in `config.yml` about the `for` suboption.
 
