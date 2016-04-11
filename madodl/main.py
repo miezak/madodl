@@ -411,7 +411,7 @@ def init_args():
     _g.log.setLevel(loglvl)
     cons_hdlr = logging.StreamHandler()
     cons_hdlr.setLevel(loglvl)
-    logfmt = logging.Formatter('%(filename)s: %(funcName)s(): '
+    logfmt = logging.Formatter('madodl: %(filename)s: %(funcName)s(): '
                                '%(levelname)s: %(message)s')
     cons_hdlr.setFormatter(logfmt)
     _g.log.addHandler(cons_hdlr)
