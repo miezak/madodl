@@ -13,6 +13,7 @@ import pycurl
 import unicurses
 
 import madodl.gvars as _g
+from madodl.exceptions import *
 
 hdrs = {}
 def curl_hdr(hdr_line):

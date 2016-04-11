@@ -8,15 +8,12 @@
 #
 
 import os, sys
-import re
 from io import BytesIO
 from itertools import chain
-import urllib.parse
 import argparse
 import logging
 import logging.handlers
 import pkg_resources
-import time
 import json
 
 def local_import():
@@ -66,7 +63,7 @@ loc = {
 class Struct:
     pass
 
-def search_exact(name='',ml=False):
+def search_exact(name='', ml=False):
     buf = BytesIO()
     path = _util.create_nwo_path(name) if not ml else ''
     c = _curl.curl_common_init(buf)

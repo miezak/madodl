@@ -10,6 +10,7 @@ from html.parser import HTMLParser
 
 import madodl.out as _out
 import madodl.gvars as _g
+from madodl.exceptions import *
 
 class ParseCommon:
     ''' ADDME '''
