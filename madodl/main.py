@@ -23,6 +23,7 @@ def local_import():
     import madodl.util    as _util
     import madodl.out     as _out
 
+import madodl.gvars as _g
 from madodl.exceptions import *
 
 if sys.hexversion < 0x30400f0:
@@ -775,10 +776,7 @@ def main_loop(manga_list):
 # - add -p switch
 #
 def main():
-    global _g
-
     try:
-        import madodl.gvars as _g
         _g.conf = Struct()
         args = init_args()
         init_config()
