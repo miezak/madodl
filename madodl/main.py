@@ -131,6 +131,7 @@ def apply_tag_filters(f, title, cv, cc):
     return True
 
 def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
+    # v_or_c: True -> vol, False -> chp
     if v_or_c:
         ftupidx = 1
         what = 'vol'
@@ -154,7 +155,8 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
     elif not fo._npreftag and npref:
         for t in npref:
             if vc in t[ftupidx]:
-                tup = t ; break
+                tup = t
+                break
         else:
             _g.log.warning('dup vol and chps seen')
             return 'break'
@@ -205,7 +207,8 @@ def walk_thru_listing(req, title, dir_ls):
         if not apply_tag_filters(fo, title, compv, compc):
             _g.log.info('** filtered out {}'.format(fo._f))
             continue
-        vq = [] ; cq = []
+        vq = []
+        cq = []
         apnd = False
         if only_file and not any((fo._vols, fo._chps, fo._all)):
             # a single file with no prefix of anykind is most likely a complete
@@ -214,6 +217,7 @@ def walk_thru_listing(req, title, dir_ls):
         if fo._all and req._all:
             # XXX need pref filt handling here
             _g.log.info('found complete archive')
+            act = check_preftags()
             _g.log.info('file - {}'.format(f))
             compfile = f
             break
@@ -229,7 +233,8 @@ def walk_thru_listing(req, title, dir_ls):
                         if act == 'break': break
                         cq.append(c)
                         continue
-                    cq = [] ; break
+                    cq = []
+                    break
         # TODO: add vol greedy match here
         if req._vols and not any({oerng_v, req._all}):
             too_many_vols = False
@@ -370,8 +375,8 @@ def init_args():
     except pkg_resources.DistributionNotFound:
         _version = '(local)'
 
-    args_parser = \
-    argparse.ArgumentParser(description='Download manga from madokami.',
+    args_parser = argparse.ArgumentParser(
+                            description='Download manga from madokami.',
                             usage='%(prog)s [-dhsv] '
                                             '-m manga '
                                             '[volume(s)] [chapter(s)] ... '
@@ -651,7 +656,7 @@ def get_listing(manga):
                 if cdict['name'] == cdir:
                     return match_dir(diriter, cdict['contents'])
             else: return None
-        jsonloc =                                                   \
+        jsonloc =                                                     \
         os.path.join(_g.conf._home, '.cache', 'madodl', 'files.json') \
         if not _g.conf._cachefile else _g.conf._cachefile
         jsondirloc = os.path.dirname(jsonloc)
@@ -665,7 +670,8 @@ def get_listing(manga):
             jobj = json.load(f)
             for o in jobj[0].get('contents'):
                 if o['name'] == 'Manga':
-                    jobj = o['contents'] ; break
+                    jobj = o['contents']
+                    break
             global mlow
             mlow = manga.lower()
             mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
@@ -777,6 +783,7 @@ def main_loop(manga_list):
 # - extension filters
 # - allow greedy v/c matching
 # - add -p switch
+# - allow non-manga DL's
 #
 def main():
     try:

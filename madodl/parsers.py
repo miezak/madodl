@@ -192,7 +192,8 @@ class ParseFile(ParseCommon):
                 self.eat_delim()
                 if self.cur_tok_typ() != 'NUM':
                     self.regex_mismatch('DAT', 'VOL', vidx)
-                    self._idx += 1 ; continue
+                    self._idx += 1
+                    continue
                 vval = self.cur_tok_val()
                 self._vols.append(vval)
                 # we need this line in case of a range
@@ -223,7 +224,8 @@ class ParseFile(ParseCommon):
                 self.eat_delim()
                 if self.cur_tok_typ() != 'NUM':
                     self.regex_mismatch('DAT', 'VOL', vidx)
-                    self._idx += 1 ; continue
+                    self._idx += 1
+                    continue
                 cval = self.cur_tok_val()
                 self._chps.append(cval)
                 # we need this line in case of a range
@@ -275,14 +277,16 @@ class ParseFile(ParseCommon):
                     if self.cur_tok_typ() != 'NUM':
                         self.regex_mismatch('DAT', 'NUM', nidx)
                         self.regex_mismatch('DAT', 'COM')
-                        self._idx += 1 ; continue
+                        self._idx += 1
+                        continue
                     wildnums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'RNG':
                     self.eat_delim()
                     if self.cur_tok_typ() != 'NUM':
                         self.regex_mismatch('DAT', 'NUM', nidx)
                         self.regex_mismatch('DAT', 'RNG')
-                        self._idx += 1 ; continue
+                        self._idx += 1
+                        continue
                     st = self.get_tok_val(nidx)
                     self._alltoks[nidx]['val'] = tmprng = []
                     tmprng.append(st)
@@ -300,7 +304,8 @@ class ParseFile(ParseCommon):
                 # shouldn't have vol/chp
                 if self._vols or self._chps:
                     self.regex_mismatch('DAT', 't')
-                    self._idx += 1 ; continue
+                    self._idx += 1
+                    continue
                 self.other = t
             elif t == 'OMK':
                 # probably should have vol/chp
