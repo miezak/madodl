@@ -177,7 +177,7 @@ def walk_thru_listing(req, title, dir_ls):
        Parameters:
        req - User requested files.
        title - Title of the series requested.
-       dir_ls - FTP directory listin_g.
+       dir_ls - FTP directory listing.
 
        Returns a 4-tuple of three lists and one str.
 
@@ -222,9 +222,8 @@ def walk_thru_listing(req, title, dir_ls):
             fo._all = True
         if fo._all and req._all:
             # XXX need pref filt handling here
-            _g.log.info('found complete archive')
-            act = check_preftags()
-            _g.log.info('file - {}'.format(f))
+            _g.log.info('found complete archive\n'
+                        'file - {}'.format(f))
             compfile = f
             break
         elif req._all and not req._vols:
@@ -722,7 +721,8 @@ def get_listing(manga):
         while 1:
             try:
                 ch = int(input('choice > '))
-                if ch in range(1, i): break
+                if ch in range(1, i):
+                    break
                 print('Pick a number between 1 and {}'.format(i-1))
             except ValueError:
                 print('Invalid input.')

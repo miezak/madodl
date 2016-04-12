@@ -396,7 +396,8 @@ class ParseRequest(ParseCommon):
         if 'all' in req:
             self._all = True
             del req[0]
-            if req: del req[0]
+            if req:
+                del req[0]
             return
         tok_spec =  [
             ('VOL', r'v(ol)?')      ,
@@ -435,7 +436,8 @@ class ParseRequest(ParseCommon):
                 typ = self.cur_tok_typ()
                 val = self.cur_tok_val()
                 _g.log.debug('{} {}'.format(typ, val))
-                if typ is None: break
+                if typ is None:
+                    break
                 if typ == 'RNG':
                     if self._idx == len(self._alltoks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
