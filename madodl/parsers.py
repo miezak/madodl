@@ -85,7 +85,8 @@ class ParseCommon:
                 if not norng and self._alltoks[self._idx]['typ'] == 'RNG':
                     self.regex_mismatch('DLM', 'RNG')
                     self._idx += 1
-            else: break
+            else:
+                break
             self._idx += 1
 
 class ParseFile(ParseCommon):
@@ -495,7 +496,8 @@ class ParseQuery(HTMLParser):
         if tag == 'a' and self.prev == 'td' and self.contb and not self.conte:
             self.cont_td = True
             self.href = attr[0][1]
-        else: self.cont_td = False
+        else:
+            self.cont_td = False
         self.prev = tag
 
     def handle_endtag(self, tag):

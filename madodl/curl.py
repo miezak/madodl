@@ -114,8 +114,7 @@ def check_curl_error(h, fh, exp=False):
         fh.truncate()
         if res in {0, 200}:
             raise
-        msg = hdrs['retstr'] if hdrs['retstr'] \
-        else 'HTTP res: {}'.format(res)
+        msg = hdrs['retstr'] if hdrs['retstr'] else 'HTTP res: {}'.format(res)
         raise CurlError(msg)
     if res != 200:
         fh.truncate()

@@ -99,15 +99,18 @@ def apply_tag_filters(f, title, cv, cc):
                 for k in d:
                     if titlel == k.lower():
                         break
-            else: continue
+            else:
+                continue
             for v in f._vols:
                 if v in cv:
                     break
-            else: continue
+            else:
+                continue
             for c in f._chps:
                 if c in cc:
                     break
-            else: continue
+            else:
+                continue
         _g.log.info('N {} {} {} {}'.format(t._name, t._filter, t._case, tlow))
         _g.log.info('NN {}'.format([t._name.lower() in tlow]))
         if t._name.lower() in tlow:
@@ -190,14 +193,17 @@ def walk_thru_listing(req, title, dir_ls):
     if req._vols and req._vols[-1] == req.ALL:
         oerng_v = True
         oest_v = req._vols[-2]
-    else: oerng_v = False
+    else:
+        oerng_v = False
     if req._chps and req._chps[-1] == req.ALL:
         oerng_c = True
         oest_c = req._chps[-2]
-    else: oerng_c = False
+    else:
+        oerng_c = False
     reqv_cpy = req._vols[:]
     reqc_cpy = req._chps[:]
     only_file = len(dir_ls.splitlines()) == 1
+
     for f in dir_ls.splitlines():
         # FIXME:
         # handle this in a more fail-safe manner.
@@ -280,13 +286,15 @@ def walk_thru_listing(req, title, dir_ls):
             for i in range(1, len(req._chps)):
                 if req._chps[i] == last+1:
                     rmax = req._chps[i]
-                else: break
+                else:
+                    break
                 last = req._chps[i]
             last = fo._chps[0]
             for i in range(1, len(fo._chps)):
                 if fo._chps[i] == last+1:
                     fomax = fo._chps[i]
-                else: break
+                else:
+                    break
                 last = fo._chps[i]
             if None in {rmax, fomax} or rmax != fomax:
                 pass
@@ -297,7 +305,8 @@ def walk_thru_listing(req, title, dir_ls):
                 for i in req._chps:
                     if i <= rmax:
                         cq.append(float(i))
-                    else: break
+                    else:
+                        break
         if req._chps:
             if oerng_c and fo._chps and min(fo._chps) >= oest_c:
                 for c in fo._chps:
@@ -505,10 +514,12 @@ def init_config():
                 return
             if 'case' not in self._tag:
                 self._case = self.DEFAULT_CASE
-            else: self._case = self._tag['case']
+            else:
+                self._case = self._tag['case']
             if 'filter' not in self._tag:
                 self._filter = self.DEFAULT_FILTER
-            else: self._filter = self._tag['filter']
+            else:
+                self._filter = self._tag['filter']
             if 'for' not in self._tag:
                 self._for = self.DEFAULT_FOR
             if self._case not in self.VALID_CASE:
@@ -655,7 +666,8 @@ def get_listing(manga):
             for cdict in ldict:
                 if cdict['name'] == cdir:
                     return match_dir(diriter, cdict['contents'])
-            else: return None
+            else:
+                return None
         jsonloc =                                                     \
         os.path.join(_g.conf._home, '.cache', 'madodl', 'files.json') \
         if not _g.conf._cachefile else _g.conf._cachefile
