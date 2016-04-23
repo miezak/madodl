@@ -37,6 +37,7 @@ def common_elem_gen(iter1, iter2, flat=True):
     if not any((iter1, iter2)):
         return None
     loc1 = iter1
+    loc2 = iter2
     if not flat:
         loc2 = chain.from_iterable(iter2)
     for elem in loc1:
