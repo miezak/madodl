@@ -15,7 +15,7 @@ def die(msg, lvl='error', **kwargs):
 
 def _(msg, file=sys.stderr, **kwargs):
     if not _g.conf._no_output:
-        print('{}: {}'.format(os.path.basename(__file__), msg), file=file,
-                              **kwargs)
+        print('madodl: {}: {}'.format(os.path.basename(__file__), msg),
+                file=file, **kwargs)
 
     return None
