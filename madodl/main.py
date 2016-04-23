@@ -547,9 +547,6 @@ def init_config():
             if self._for == 'all' or self._tag['for'] in ('all',['all']):
                 return
             else:
-                _g.log.warning('madodl currently only handles the value '
-                            '`all` for tag filters, and will handle '
-                            'any filters as if such.')
                 for kv in self._tag['for']:
                     for name in kv:
                         r = _parsers.ParseRequest(list(
