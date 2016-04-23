@@ -16,13 +16,34 @@ def rm_req_elems(req, comp):
 
     return None
 
-def common_elem(iter1, iter2):
-    assert iter1 and iter2
+#
+# XXX this looks to be O(n^2) to me. check if python
+#     optimizes this or has a std util for it.
+#
+def common_elem(iter1, iter2, flat=True):
+    if not any((iter1, iter2)):
+        return None
     loc1 = iter1
-    loc2 = chain.from_iterable(iter2)
+    loc2 = iter2
+    if not flat:
+        loc2 = chain.from_iterable(iter2)
+    for elem in loc1:
+        if elem in loc2:
+            return elem
+
+    return None
+
+def common_elem_gen(iter1, iter2, flat=True):
+    if not any((iter1, iter2)):
+        return None
+    loc1 = iter1
+    if not flat:
+        loc2 = chain.from_iterable(iter2)
     for elem in loc1:
         if elem in loc2:
             yield elem
+
+    return None
 
 def create_nwo_path(name):
     '''Create the exact path that the manga `name` should be in.

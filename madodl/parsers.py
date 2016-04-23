@@ -323,7 +323,7 @@ class ParseFile(ParseCommon):
                                               'PRL', 'ART'}:
                     self._idx += 1
                     if (self.cur_tok_typ() == 'NUM' and
-                       self.get_tok_typ(self._idx+1) != 'DAT'):
+                        self.get_tok_typ(self._idx+1) != 'DAT'):
                         continue
                     tmptag = ''
                     while self.cur_tok_typ() not in {'GRE', None}:
@@ -460,8 +460,8 @@ class ParseRequest(ParseCommon):
                         self.push_to_last(end)
                     self._idx += 1
                 elif typ == 'COM':
-                    if self._idx == len(self._alltoks)-1 or \
-                       self._alltoks[self._idx+1]['typ'] != 'NUM':
+                    if (self._idx == len(self._alltoks)-1 or
+                        self._alltoks[self._idx+1]['typ'] != 'NUM'):
                         _g.log.warning('Extraneous comma detected. Removing.')
                         del self._alltoks[self._idx]
                         continue

@@ -91,38 +91,52 @@ def apply_tag_filters(f, title, cv, cc):
     f._npreftag = False
     if not f._tag or not _g.conf._alltags:
         return True
-    tlow = [t.lower() for t in f._tag]
-    titlel = title.lower()
+    taglow = [t.lower() for t in f._tag]
+    titlelow = title.lower()
     for t in _g.conf._alltags:
-        if t._for != 'all':
-            for d in t._for:
-                for k in d:
-                    if titlel == k.lower():
-                        break
-            else:
-                continue
-            for v in f._vols:
-                if v in cv:
-                    break
-            else:
-                continue
-            for c in f._chps:
-                if c in cc:
-                    break
-            else:
-                continue
-        _g.log.info('N {} {} {} {}'.format(t._name, t._filter, t._case, tlow))
-        _g.log.info('NN {}'.format([t._name.lower() in tlow]))
-        if t._name.lower() in tlow:
+       # if t._for != 'all':
+       #     for k in [d.keys() for d in t._for]:
+       #         if titlelow in [kl.lower() for kl in k]:
+       #             break
+       #     else:
+       #         continue
+       #     if not (_util.common_elem(f._vols, cv) or
+       #             _util.common_elem(f._chps, cc)):
+       #         break
+        _g.log.info('apply_tag_filters(): {} {} {} {}'.format(t._name,
+                                                        t._filter , t._case,
+                                                        taglow))
+        _g.log.info('apply_tag_filters(): {}'.format(t._name.lower() in
+                                                        taglow))
+        if t._name.lower() in taglow:
             if ((t._case == 'exact' and t._name not in f._tag) or
                (t._case == 'upper' and t._name not in
                                        [t.upper() for t in f._tag])):
-                return False
-            curt = t._name.lower()
+                return True
+            curtag = t._name.lower()
+            # we need to check the `for` sub-opt before actually checking
+            # the filter to make sure we don't apply the filters to titles
+            # not in the `for` listing.
+            if hasattr(t, '_for'):
+                for d in t._for:
+                    for ft in d.keys():
+                        if ft.lower() == titlelow:
+                            mreq = d[titlelow]
+                            break # first come, first serve
+                    else:
+                        continue
+                    break # need this too
+                else:
+                    return True
+                if mreq != 'all':
+                    if (_util.common_elem(f._vols, mreq._vols) or
+                        _util.common_elem(f._chps, mreq._chps)):
+                        pass
+                    else:
+                        return True
             if t._filter == 'out':
                 del f
                 return False
-            # TODO: handle `for` sub-opt for pref
             if t._filter == 'prefer':
                 f._preftag = True
             elif t._filter == 'not prefer':
@@ -298,7 +312,8 @@ def walk_thru_listing(req, title, dir_ls):
             if None in {rmax, fomax} or rmax != fomax:
                 pass
             else:
-                iter_celems = _util.common_elem(req._chps, (cq, compc))
+                iter_celems = _util.common_elem_gen(req._chps, (cq, compc),
+                                                    flat=False)
                 for cclash in iter_celems:
                     check_preftags(cclash, cq, fo, allf, npref, False)
                 for i in req._chps:
@@ -458,6 +473,8 @@ def init_config():
         'user'      ,
         'pass'      ,
     }
+    # for valid option values
+    # None = an option whose validity cannot be ascertained
     binopt = {True, False}
     VALID_OPTVAL_NO_OUTPUT = binopt
     VALID_OPTVAL_LOGFILE = None
@@ -688,7 +705,7 @@ def get_listing(manga):
             mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
             if not mdir:
                 _g.log.warning("couldn't find title in JSON file. Trying "
-                            "online query.")
+                               "online query.")
                 raise breaks.Break
             _g.conf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
                                             loc['MLOC'], d1, d2, d3, title)
@@ -715,7 +732,7 @@ def get_listing(manga):
               'selection below:\n')
         i = 1
         for url, f in qp.mresults:
-            print(str(i)+':', os.path.basename(f))
+            print('{}: {}'.format(i, os.path.basename(f)))
             i += 1
         print()
         while 1:
@@ -796,13 +813,14 @@ def main_loop(manga_list):
 # - allow greedy v/c matching
 # - add -p switch
 # - allow non-manga DL's
+# - XXX don't conv tag nums to float
 #
 def main():
     try:
         _g.conf = Struct()
         args = init_args()
-        init_config()
         local_import()
+        init_config()
         if args.outdir:
             _g.conf._outdir = args.outdir
         else:
