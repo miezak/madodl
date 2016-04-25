@@ -117,7 +117,7 @@ def apply_tag_filters(f, title, cv, cc):
             # we need to check the `for` sub-opt before actually checking
             # the filter to make sure we don't apply the filters to titles
             # not in the `for` listing.
-            if hasattr(t, '_for'):
+            if t._for != 'all':
                 for d in t._for:
                     for ft in d.keys():
                         if ft.lower() == titlelow:
@@ -568,8 +568,7 @@ def init_config():
         else:
             setattr(_g.conf, '_{}'.format(opt), default)
 
-    h = os.path.expanduser('~')
-    _g.conf._home = h
+    _g.conf._home = h = os.path.expanduser('~')
     if os.name == 'posix':
         if os.path.exists('{0}/.config/madodl/config.yml'.format(h)):
             c = '{0}/.config/madodl/config.yml'.format(h)
@@ -810,7 +809,6 @@ def main_loop(manga_list):
 # - allow greedy v/c matching
 # - add -p switch
 # - allow non-manga DL's
-# - XXX don't conv tag nums to float
 #
 def main():
     try:

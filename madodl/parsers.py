@@ -24,8 +24,8 @@ class ParseCommon:
         self._vols = []
         self._chps = []
 
-    def push_to_last(self, uval=False):
-        val = uval if uval is not False else self.cur_tok_val()
+    def push_to_last(self, uval=-1):
+        val = self.cur_tok_val() if uval < 0 else uval
         if self.last:
             _g.log.debug(self.last)
             self._vols.append(val)
@@ -33,26 +33,32 @@ class ParseCommon:
             _g.log.debug(self.last)
             self._chps.append(val)
 
+        return None
+
     def cur_tok_typ(self):
         if self._idx == len(self._alltoks):
             return None
+
         return self._alltoks[self._idx]['typ']
 
     def cur_tok_val(self):
         if self._idx == len(self._alltoks):
             return None
+
         return self._alltoks[self._idx]['val']
 
     def set_cur_tok_typ(self, newtyp):
         if self._idx == len(self._alltoks):
             return False
         self._alltoks[self._idx]['typ'] = newtyp
+
         return True
 
     def set_cur_tok_val(self, newval):
         if self._idx == len(self._alltoks):
             return False
         self._alltoks[self._idx]['val'] = newval
+
         return True
 
     def get_tok_typ(self, uidx):
@@ -63,19 +69,25 @@ class ParseCommon:
 
     def set_tok_typ(self, uidx, newtyp):
         self._alltoks[uidx]['typ'] = newtyp
+
         return True
 
     def set_tok_val(self, uidx, newval):
         self._alltoks[uidx]['val'] = newval
+
         return True
 
-    def regex_mismatch(self, goodt, badt, uidx=False):
+    def regex_mismatch(self, goodtyp, badtyp, uidx=-1):
         _g.log.warning('regex falsely picked up {} token as {}. '
-                    'Replacing type.'.format(goodt, badt))
-        if uidx is not False:
-            self._alltoks[uidx]['typ'] = goodt
-        else:
-            self._alltoks[self._idx]['typ'] = goodt
+                       'Replacing type.'.format(goodtyp, badtyp))
+        _idx_ = self._idx if uidx < 0 else uidx
+        self._alltoks[_idx_]['typ'] = goodtyp
+        # put back original token value so integers in non volume/chapter
+        # tokens don't stay in float format.
+        if badtyp == 'NUM':
+            self._alltoks[_idx_]['val'] = self._alltoks[_idx_]['raw']
+
+        return None
 
     def eat_delim(self, norng=False):
         self._idx += 1
@@ -88,6 +100,8 @@ class ParseCommon:
             else:
                 break
             self._idx += 1
+
+        return None
 
 class ParseFile(ParseCommon):
     '''An inflexible title parser.
@@ -304,7 +318,7 @@ class ParseFile(ParseCommon):
             elif t in {'PLT', 'PRE', 'PRL', 'ART'}:
                 # shouldn't have vol/chp
                 if self._vols or self._chps:
-                    self.regex_mismatch('DAT', 't')
+                    self.regex_mismatch('DAT', t)
                     self._idx += 1
                     continue
                 self.other = t
@@ -327,6 +341,8 @@ class ParseFile(ParseCommon):
                         continue
                     tmptag = ''
                     while self.cur_tok_typ() not in {'GRE', None}:
+                        if self.cur_tok_typ() == 'NUM':
+                            self.regex_mismatch('DAT', 'NUM')
                         tmptag += str(self.cur_tok_val())
                         self._idx += 1
                     if self.cur_tok_val() == None:
