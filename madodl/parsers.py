@@ -373,7 +373,7 @@ class ParseFile(ParseCommon):
             del wnsubls
             if len(wildnums[0]['raw']) >= 3:
                 dot = wildnums[0]['raw'].find('.')
-                if dot != -1 and dot < 2:
+                if -1 < dot < 2:
                     pass
                 else:
                     self._chps.extend(sorted(wnls))
