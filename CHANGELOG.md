@@ -1,3 +1,20 @@
+## [v0.2.0] - 2016-04-24
+### Added
+* Prefix program name to all message output.
+* Implement the `for` sub-option from the config file.
+
+### Changed
+* Separate `madodl.py` into logically divided modules (files).
+* Lots of style changes, including an attempt to conform to PEP recommendations.
+* `util.py`: split `common_elem()` into two functions.
+* Explicitly import madodl modules. With this change `madodl` _must_ be re-installed after every update.
+
+### Fixed
+* Various typos.
+* Handle complete archive files with no prefix that are the only file.
+* `ParseFile`: Don't leave `NUM` tokens that aren't volume/chapter numbers in `float()` format.
+* Various bug fixes in `apply_tag_filters()`.
+
 ## [v0.1.1] - 2016-03-15
 ### Fixed
 * ParseFile() chapter range (with no prefix) bug fix.
@@ -73,6 +90,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.2.0]: https://github.com/miezak/madodl/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/miezak/madodl/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/miezak/madodl/compare/v0.1.0a5...v0.1.0
 [v0.1.0a5]: https://github.com/miezak/madodl/compare/v0.1.0a4...v0.1.0a5
