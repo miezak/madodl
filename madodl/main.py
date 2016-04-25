@@ -94,17 +94,8 @@ def apply_tag_filters(f, title, cv, cc):
     taglow = [t.lower() for t in f._tag]
     titlelow = title.lower()
     for t in _g.conf._alltags:
-       # if t._for != 'all':
-       #     for k in [d.keys() for d in t._for]:
-       #         if titlelow in [kl.lower() for kl in k]:
-       #             break
-       #     else:
-       #         continue
-       #     if not (_util.common_elem(f._vols, cv) or
-       #             _util.common_elem(f._chps, cc)):
-       #         break
         _g.log.info('apply_tag_filters(): {} {} {} {}'.format(t._name,
-                                                        t._filter , t._case,
+                                                        t._filter, t._case,
                                                         taglow))
         _g.log.info('apply_tag_filters(): {}'.format(t._name.lower() in
                                                         taglow))
@@ -224,7 +215,7 @@ def walk_thru_listing(req, title, dir_ls):
         if f == 'Viz Releases':
             continue # a common sub-dir
         fo = _parsers.ParseFile(f, title)
-        if not apply_tag_filters(fo, title, compv, compc):
+        if not apply_tag_filters(fo, title):
             _g.log.info('** filtered out {}'.format(fo._f))
             continue
         vq = []
