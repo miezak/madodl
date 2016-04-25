@@ -34,7 +34,7 @@ setup(
     packages=find_packages() ,
     entry_points={
         'console_scripts' : [
-            'madodl=madodl.madodl:main',
+            'madodl=madodl.main:main',
         ],
     } ,
 )
