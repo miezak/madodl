@@ -87,7 +87,7 @@ def search_query(name=''):
     return _curl.curl_to_buf('https://{}{}{}'.format(loc['DOMAIN'],
                                                      loc['SEARCH'], name))
 
-def apply_tag_filters(f, title, cv, cc):
+def apply_tag_filters(f, title):
     f._preftag  = False
     f._npreftag = False
     if not f._tag or not _g.conf._alltags:
