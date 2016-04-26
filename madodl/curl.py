@@ -65,7 +65,7 @@ def curl_json_list(fname, isf=False):
     #c.setopt(c.ACCEPT_ENCODING, 'gzip')
     c.setopt(c.USE_SSL, True)
     c.setopt(c.SSL_VERIFYPEER, False)
-    c.setopt(c.URL, 'https://{}{}dumbtree'.format(loc['DOMAIN'], loc['API']))
+    c.setopt(c.URL, 'https://{}{}dumbtree'.format(_g.loc['DOMAIN'], _g.loc['API']))
     _g.log.info('curling JSON tree...')
     c.perform()
     c.close()

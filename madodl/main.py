@@ -59,6 +59,7 @@ loc = {
     'MLOC'     : '/Manga/'            ,
     'SEARCH'   : '/search?q='         ,
 }
+_g.loc = loc
 
 # emulate struct
 class Struct:
