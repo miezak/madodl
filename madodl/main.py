@@ -316,7 +316,7 @@ def walk_thru_listing(req, title, dir_ls):
         if req._chps:
             if oerng_c and fo._chps and min(fo._chps) >= oest_c:
                 for c in fo._chps:
-                    if c in cq or c in compc:
+                    if c in set(chain(cq, compc)): # in queue, check preftags
                         act = check_preftags(c, cq, fo, allf, npref, False)
                         if act == 'break'   : break
                         if act == 'continue': continue
@@ -327,23 +327,19 @@ def walk_thru_listing(req, title, dir_ls):
                         cq.extend(fo._chps)
             else:
                 # TODO: add chp greedy match here
-                if not req._all:
-                    for c in fo._chps:
-                        if c not in req._chps:
-                            break
-                else:
-                    for c in req._chps:
-                        if (req._all or c in fo._chps) and c not in cq:
-                            if c not in compc:
+                # NOTE: the list-comprehension is non-greedy check
+                if req._all or not [c for c in fo._chps if c not in
+                                         req._chps]:
+                    for c in _util.common_elem_gen(fo._chps, req._chps):
+                        if c not in set(chain(cq, compc)):
+                            cq.append(c)
+                        else: # in queue, check preftags
+                            act = check_preftags(c, cq, fo, allf, npref, False)
+                            if act == 'break'   : break
+                            if act == 'continue':
+                                # always npref, continue is simply explicit
                                 cq.append(c)
-                            else:
-                                act = check_preftags(c, cq, fo, allf, npref,
-                                                     False)
-                                if act == 'break'   : break
-                                if act == 'continue':
-                                    # always npref, continue is simply explicit
-                                    cq.append(c)
-                                    continue
+                                continue
         if vq:
             _g.log.info('found vol {}'.format(vq))
         if cq:
