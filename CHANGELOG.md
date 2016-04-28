@@ -1,8 +1,3 @@
-## [v0.2.1] - 2016-04-27
-### Fixed
-* `apply_tag_filters()` regression.
-* Bug that caused individual chapter requests to fail.
-
 ## [v0.2.0] - 2016-04-24
 ### Added
 * Prefix program name to all message output.
@@ -95,7 +90,6 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
-[v0.2.1]: https://github.com/miezak/madodl/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/miezak/madodl/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/miezak/madodl/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/miezak/madodl/compare/v0.1.0a5...v0.1.0
