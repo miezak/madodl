@@ -43,6 +43,8 @@ def curl_common_init(buf):
     handle.setopt(pycurl.USERPWD, '{}:{}'.format(_g.conf._user,_g.conf._pass))
     handle.setopt(pycurl.FOLLOWLOCATION, True)
     handle.setopt(pycurl.VERBOSE, True)
+    handle.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_V4)
+
     return handle
 
 def curl_json_list(fname, isf=False):

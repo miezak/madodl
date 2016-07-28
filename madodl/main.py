@@ -50,14 +50,14 @@ except ImportError:
     dep404('PyYAML')
 
 loc = {
-    'DOMAIN'   : 'manga.madokami.com' ,
-    'API'      : '/stupidapi/'        ,
-    'USER'     : 'homura'             ,
-    'PASS'     : 'megane'             ,
-    'FTPPORT'  : 24430                ,
-    'SFTPPORT' : 38460                ,
-    'MLOC'     : '/Manga/'            ,
-    'SEARCH'   : '/search?q='         ,
+    'DOMAIN'   : 'manga.madokami.al' ,
+    'API'      : '/stupidapi/'       ,
+    'USER'     : 'homura'            ,
+    'PASS'     : 'megane'            ,
+    'FTPPORT'  : 24430               ,
+    'SFTPPORT' : 38460               ,
+    'MLOC'     : '/Manga/'           ,
+    'SEARCH'   : '/search?q='        ,
 }
 _g.loc = loc
 
