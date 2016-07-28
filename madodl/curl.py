@@ -47,10 +47,10 @@ def curl_common_init(buf):
     handle.setopt(pycurl.VERBOSE, True)
     # use ipv4 for VPNs
     handle.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_V4)
-    handle.setopt(c.USE_SSL, True)
-    handle.setopt(c.SSL_VERIFYPEER, False)
+    handle.setopt(pycurl.USE_SSL, True)
+    handle.setopt(pycurl.SSL_VERIFYPEER, False)
     # XXX
-    handle.setopt(c.SSL_VERIFYHOST, 0)
+    handle.setopt(pycurl.SSL_VERIFYHOST, 0)
 
     return handle
 
