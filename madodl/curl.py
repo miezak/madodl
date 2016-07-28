@@ -42,8 +42,15 @@ def curl_common_init(buf):
     handle.setopt(pycurl.DEBUGFUNCTION, curl_debug)
     handle.setopt(pycurl.USERPWD, '{}:{}'.format(_g.conf._user,_g.conf._pass))
     handle.setopt(pycurl.FOLLOWLOCATION, True)
+    # we always set this flag and let the logging module
+    # handle filtering.
     handle.setopt(pycurl.VERBOSE, True)
+    # use ipv4 for VPNs
     handle.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_V4)
+    handle.setopt(c.USE_SSL, True)
+    handle.setopt(c.SSL_VERIFYPEER, False)
+    # XXX
+    handle.setopt(c.SSL_VERIFYHOST, 0)
 
     return handle
 
@@ -64,9 +71,6 @@ def curl_json_list(fname, isf=False):
             die("couldn't open file for writing")
     else:
         c = curl_common_init(fname)
-    #c.setopt(c.ACCEPT_ENCODING, 'gzip')
-    c.setopt(c.USE_SSL, True)
-    c.setopt(c.SSL_VERIFYPEER, False)
     c.setopt(c.URL, 'https://{}{}dumbtree'.format(_g.loc['DOMAIN'], _g.loc['API']))
     _g.log.info('curling JSON tree...')
     c.perform()
