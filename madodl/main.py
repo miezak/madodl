@@ -819,9 +819,9 @@ def main():
             _g.conf._no_output = True
             _g.log.addFilter(nullfilter)
         ret = main_loop(args.manga)
-    except (KeyboardInterrupt, EOFError):
+    except (KeyboardInterrupt, EOFError) as e:
         print()
-        _out._('caught user signal, exiting...')
+        _out._('caught {} signal, exiting...'.format(type(e).__name__))
         return 0
 
     return ret
