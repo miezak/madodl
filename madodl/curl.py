@@ -49,8 +49,6 @@ def curl_common_init(buf):
     handle.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_V4)
     handle.setopt(pycurl.USE_SSL, True)
     handle.setopt(pycurl.SSL_VERIFYPEER, False)
-    # XXX
-    handle.setopt(pycurl.SSL_VERIFYHOST, 0)
 
     return handle
 
