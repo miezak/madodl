@@ -11,6 +11,7 @@ import madodl.gvars as _g
 def die(msg, lvl='error', **kwargs):
     if lvl:
       getattr(_g.log, lvl.lower())(msg, **kwargs)
+
     sys.exit(1)
 
 def _(msg, file=sys.stderr, **kwargs):
