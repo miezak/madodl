@@ -146,11 +146,11 @@ class ParseFile(ParseCommon):
         # NOTE: anything starting with `v` needs to be put _before_ VOL
         #       anything starting with `c` needs to be put _before_ CHP
         tok_spec = [
-            ('EXT', r'\.[^\.]+$')    ,
-            ('GRB', r'(\(|\[|<|\{)') ,
-            ('GRE', r'(\)|\]|>|\})') ,
-            ('RNG', r'(-|\.\.)')     ,
-            ('DLM', r'(-|_|\.|\s+)') ,
+            ('EXT', r'\.[^\.]+$')            ,
+            ('GRB', r'(\(|\[|<|\{)')         ,
+            ('GRE', r'(\)|\]|>|\})')         ,
+            ('RNG', r'(-|\.\.(?=[^.]*[.]))') , # assertion checks for EXT `.`
+            ('DLM', r'(-|_|\.|\s+)')         ,
             ('VOL', r'''(?x)
                         v(ol(ume)?)?
                         (?=(-|_|\.|\s+)*[0-9]) # look-ahead assertion
@@ -182,7 +182,7 @@ class ParseFile(ParseCommon):
 
         if self._alltoks[-1]['typ'] != 'EXT':
             _out.die('Encountered a file without an extension, which is '
-                         'not currently supported. Bailing.', lvl='FATAL')
+                     'not currently supported. Bailing.', lvl='FATAL')
 
         for t in self._alltoks:
             if t['typ'] == 'NUM':

@@ -61,3 +61,26 @@ def create_nwo_path(name):
     name = re.sub(r'^(the|an?) ', '', name, flags=re.I)
     name = name.upper()
     return re.sub(r'^(.)(.|)?(.|)?(.|)?.*', r'\1/\1\2/\1\2\3\4', name)
+
+def conv_bytes(bvar):
+    if bvar / 1024**3 >= 1:
+        ret = ''.join([str(round((bvar / 1024**3), 2)), ' GB'])
+    elif bvar / 1024**2 >= 1:
+        ret = ''.join([str(round((bvar / 1024**2), 2)), ' MB'])
+    elif bvar / 1024 >= 1:
+        ret = ''.join([str(round((bvar / 1024), 2)), ' KB'])
+    else:
+        ret = ''.join([str(bvar), ' B'])
+
+    return ret
+
+def flatten_sublists(ls):
+    retls = []
+
+    for obj in ls:
+        if not isinstance(obj, list):
+            retls.append(obj)
+        else:
+            retls.extend(flatten_sublists(obj))
+
+    return retls

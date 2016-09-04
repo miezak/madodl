@@ -8,8 +8,9 @@
 #
 
 import os, sys
-from io import BytesIO
+from io        import BytesIO
 from itertools import chain
+from urllib    import parse
 import argparse
 import logging
 import logging.handlers
@@ -65,27 +66,33 @@ _g.loc = loc
 class Struct:
     pass
 
-def search_exact(name='', ml=False):
+#
+# returns an FTP LISTing
+#
+def search_exact(name='', have_path=False):
     buf = BytesIO()
-    path = _util.create_nwo_path(name) if not ml else ''
+    # need to unquote for LIST to work properly with nocwd
+    name = parse.unquote(name)
+    path = _util.create_nwo_path(name) if not have_path else ''
+    _g.log.info('name: ' + name)
     c = _curl.curl_common_init(buf)
-    c.setopt(c.DIRLISTONLY, True)
+    #c.setopt(c.DIRLISTONLY, True)
     c.setopt(c.USE_SSL, True)
     c.setopt(c.SSL_VERIFYPEER, False)
     c.setopt(c.USERPWD, '{}:{}'.format(loc['USER'], loc['PASS']))
     c.setopt(c.PORT, loc['FTPPORT'])
-    ml = loc['MLOC'] if not ml else ''
-    _g.log.info('ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
-    _g.conf._cururl = \
-    os.path.join('https://', loc['DOMAIN'], ml, path) + name
-    c.setopt(c.URL, 'ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
-    c.perform()
-    c.close()
-    return buf
+    ml = loc['MLOC'] if not have_path else ''
+    path_noscheme = '{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name)
+    _g.log.info('ftp://' + path_noscheme)
+    _g.conf._cururl = 'https://' + path_noscheme
+    print('EX:', path_noscheme)
+
+    return _curl.curl_to_buf('ftp://' + path_noscheme, 'FTP', c, buf)
 
 def search_query(name=''):
     return _curl.curl_to_buf('https://{}{}{}'.format(loc['DOMAIN'],
-                                                     loc['SEARCH'], name))
+                                                     loc['SEARCH'], name),
+                             'HTTP')
 
 def apply_tag_filters(f, title):
     f._preftag  = False
@@ -102,7 +109,7 @@ def apply_tag_filters(f, title):
                                                         taglow))
         if t._name.lower() in taglow:
             if ((t._case == 'exact' and t._name not in f._tag) or
-               (t._case == 'upper' and t._name not in
+                (t._case == 'upper' and t._name not in
                                        [t.upper() for t in f._tag])):
                 return True
             curtag = t._name.lower()
@@ -208,14 +215,11 @@ def walk_thru_listing(req, title, dir_ls):
         oerng_c = False
     reqv_cpy = req._vols[:]
     reqc_cpy = req._chps[:]
-    only_file = len(dir_ls.splitlines()) == 1
+    only_file = len(dir_ls) == 1
 
-    for f in dir_ls.splitlines():
-        # FIXME:
-        # handle this in a more fail-safe manner.
-        if f == 'Viz Releases':
-            continue # a common sub-dir
-        fo = _parsers.ParseFile(f, title)
+    for f in dir_ls:
+        # !!!
+        fo = _parsers.ParseFile(f.name, title)
         if not apply_tag_filters(fo, title):
             _g.log.info('** filtered out {}'.format(fo._f))
             continue
@@ -229,7 +233,7 @@ def walk_thru_listing(req, title, dir_ls):
         if fo._all and req._all:
             # XXX need pref filt handling here
             _g.log.info('found complete archive\n'
-                        'file - {}'.format(f))
+                        'file - {}'.format(f.name))
             compfile = f
             break
         elif req._all and not req._vols:
@@ -348,7 +352,7 @@ def walk_thru_listing(req, title, dir_ls):
             if fo._npreftag:
                 npref.append((f, vq, cq))
             allf.append((f, vq, cq))
-            _g.log.info('file - {}'.format(f))
+            _g.log.info('file - {}'.format(f.name))
         compv.extend(vq)
         compc.extend(cq)
         _util.rm_req_elems(reqv_cpy, vq)
@@ -443,7 +447,7 @@ def logfile_filter(record):
     if _g.conf._loglevel == 'all':
         return 1
     if ((record.levelname == 'DEBUG' and _g.conf._loglevel != 'debug') or
-       (record.levelname == 'INFO' and _g.conf._loglevel != 'verbose')):
+        (record.levelname == 'INFO'  and _g.conf._loglevel != 'verbose')):
         return 0
 
     return 1
@@ -654,6 +658,7 @@ class breaks(object):
 def get_listing(manga):
     badret = ('', '')
     if _g.conf._usecache:
+        # XXX move this
         def match_dir(diriter, ldict):
             global mlow
             try:
@@ -668,15 +673,16 @@ def get_listing(manga):
                     return match_dir(diriter, cdict['contents'])
             else:
                 return None
-        jsonloc =                                                     \
-        os.path.join(_g.conf._home, '.cache', 'madodl', 'files.json') \
-        if not _g.conf._cachefile else _g.conf._cachefile
+        jsonloc = os.path.join(_g.conf._home, '.cache', 'madodl',
+                               'files.json') \
+            if not _g.conf._cachefile else _g.conf._cachefile
         jsondirloc = os.path.dirname(jsonloc)
         if not os.path.exists(jsonloc):
             os.makedirs(jsondirloc, 0o770, True)
             _curl.curl_json_list(jsonloc, True)
         assert os.path.exists(jsonloc)
-        d1,d2,d3 = _util.create_nwo_path(manga).split('/')
+        path = _util.create_nwo_path(manga)
+        d1,d2,d3 = path.split('/')
         mdir = None
         with breaks(open(jsonloc, errors='surrogateescape')) as f:
             jobj = json.load(f)
@@ -693,9 +699,10 @@ def get_listing(manga):
                 raise breaks.Break
             _g.conf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
                                             loc['MLOC'], d1, d2, d3, title)
-            dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
-            _g.log.info('\n-----\n{}-----'.format(dirls))
-            return (dirls, title)
+            #dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
+            _g.log.info('\n-----\n{}-----'.format(mdir))
+            path = '/'.join((path, title))
+            return (mdir, title, path)
     qout = search_query(manga).getvalue().decode()
     qp = _parsers.ParseQuery()
     qp.feed(qout)
@@ -736,13 +743,76 @@ def get_listing(manga):
     dirls = search_exact(m, True).getvalue().decode()
 
     _g.log.info('\n-----\n{}-----'.format(dirls))
-    return (dirls, title)
+    return (dirls, title, m)
+
+def subdir_recurse(listing, path, depth=1):
+    # XXX add a knob for this
+    if depth > 256:
+        _out.die('reached max recursion depth')
+
+    for idx in range(len(listing)):
+        d_or_f, fname = (listing[idx]['type'], listing[idx]['name'])
+        this_path = ''.join([path, '/', fname])
+        if d_or_f == 'directory':
+            listing[idx] = subdir_recurse(listing[idx]['contents'],
+                                          this_path, depth+1)
+        elif d_or_f == 'file':
+            title = Struct()
+            title.name = fname
+            title.path = this_path
+            listing[idx] = title
+        else: # sanity check
+            _out.die('unsupported file type `{}`'.format(d_or_f))
+
+    if depth != 1:
+        return listing
+
+    return _util.flatten_sublists(listing)
+
+def rem_subdir_recurse(listing, path, depth=1):
+    # XXX add a knob for this
+    if depth > 256:
+        _out.die('reached max recursion depth')
+
+    for idx in range(len(listing)):
+        # madokami's FTP LIST format is long ls, [{}/ are meta tokens]:
+        # {d,-}rwxrwxrwx 1 u g sz mon day y/time fname
+        #  |                                     |
+        #  |=> directory or regular file         |=> filename
+        #
+        # XXX: while highly unlikely that whitespace gives any significant
+        # distinction beyond one space, the split() module splits by any amount         # of wspace; thus, when re-join()ed, any extra wspace is truncated to
+        # one space.
+        fields = listing[idx].split()
+        d_or_f, fname = (fields[0][:1], ' '.join(fields[8:]))
+        this_path = ''.join([path, '/', fname])
+        if d_or_f == 'd':
+            listing[idx] = rem_subdir_recurse(search_exact(this_path, True)
+                                                .getvalue()
+                                                .decode()
+                                                .splitlines(),
+                                              this_path, depth+1)
+        else: # is reg file
+            title = Struct()
+            title.name = fname
+            title.path = this_path
+            listing[idx] = title
+
+    if depth != 1:
+        return listing
+
+    return _util.flatten_sublists(listing)
 
 def main_loop(manga_list):
     global compc, compv
     for m in manga_list:
             req = _parsers.ParseRequest(m)
-            sout, title = get_listing(req._name)
+            sout, title, path = get_listing(req._name)
+            if _g.conf._usecache and not isinstance(sout, str):
+                sout = subdir_recurse(sout, path)
+            else:
+                sout = sout.splitlines()
+                sout = rem_subdir_recurse(sout, path)
             compv, compc, allf, compfile = walk_thru_listing(req, title, sout)
             if req._vols and req._vols[-1] == req.ALL:
                 del req._vols[-1]
@@ -755,6 +825,8 @@ def main_loop(manga_list):
             if missc:
                 _out._("couldn't find chp(s): " + missc)
             if any((compfile, compc, compv)):
+                # XXX sigh...
+                ppfx = ''.join(('https://', loc['DOMAIN'], loc['MLOC']))
                 try:
                     stdscr = unicurses.initscr()
                     _g.conf._stdscr = stdscr
@@ -762,20 +834,23 @@ def main_loop(manga_list):
                     if compfile:
                         _out._('downloading complete archive... ', end='')
                         _g.conf._stdscr.erase()
-                        _g.conf._stdscr.addstr(0, 0, compfile)
+                        _g.conf._stdscr.addstr(0, 0, compfile.name)
                         _g.conf._stdscr.refresh()
-                        _curl.curl_to_file(compfile)
+                        _curl.curl_to_file('/'.join((ppfx, compfile.path)) ,
+                                           compfile.name                   ,
+                                           'HTTP')
                     elif compv or compc:
                         _out._('downloading volume/chapters... ', end='')
                         for f,v,c in allf:
                             #_g.log.info('DL ' + f)
                             _g.conf._stdscr.erase()
                             _g.conf._stdscr.addstr(0, 0, 'title - {}'
-                                                       .format(title))
+                                                           .format(title))
                             _g.conf._stdscr.addstr(1, 0, 'current - {}'
-                                                       .format(f))
+                                                           .format(f.name))
                             _g.conf._stdscr.refresh()
-                            _curl.curl_to_file(f)
+                            _curl.curl_to_file('/'.join((ppfx, f.path)),
+                                               f.name, 'HTTP')
                 except:
                     raise
                 finally:
@@ -792,11 +867,11 @@ def main_loop(manga_list):
 
 #
 # TODO:
-# - handle sub-directories in file listing
 # - extension filters
 # - allow greedy v/c matching
 # - add -p switch
 # - allow non-manga DL's
+# - msg output w/ unicurses
 #
 def main():
     try:
