@@ -15,14 +15,14 @@ from madodl.exceptions import *
 class ParseCommon:
     ''' ADDME '''
 
-    ALL = float(1 << 32)
+    ALL = float((1 << 32)-1)
 
     def __init__(self):
-        self._idx=0
+        self._idx     = 0
         self._alltoks = []
-        self._all = False
-        self._vols = []
-        self._chps = []
+        self._all     = False
+        self._vols    = []
+        self._chps    = []
 
     def push_to_last(self, uval=-1):
         val = self.cur_tok_val() if uval < 0 else uval
@@ -123,8 +123,8 @@ class ParseFile(ParseCommon):
             _out.die('File parameter is empty!')
 
         ParseCommon.__init__(self)
-        self._f = f
-        self._tag = []
+        self._f     = f
+        self._tag   = []
         self._title = ''
         # Token abbreviations:
         # EXT -> Extension
@@ -580,15 +580,15 @@ class ParseRequest(ParseCommon):
 class ParseQuery(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
-        self.lasttag = None
+        self.lasttag   = None
         self.resultnum = None
-        self.results = []
-        self.h1b = False
-        self.h1e = False
-        self.contb = False
-        self.conte = False
-        self.cont_td = False
-        self.prev = None
+        self.results   = []
+        self.h1b       = False
+        self.h1e       = False
+        self.contb     = False
+        self.conte     = False
+        self.cont_td   = False
+        self.prev      = None
 
     def handle_starttag(self, tag, attr):
         if tag == 'h1':

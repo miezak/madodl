@@ -213,10 +213,10 @@ def walk_thru_listing(req, title, dir_ls):
        matched (volumes, chapters, filenames), and the complete archive
        filename (if matched) in the case that all volumes are requested.
     '''
-    compv = []
-    compc = []
-    allf = []
-    npref = []
+    compv    = []
+    compc    = []
+    allf     = []
+    npref    = []
     compfile = None
 
     if req._vols and req._vols[-1] == req.ALL:
@@ -233,18 +233,18 @@ def walk_thru_listing(req, title, dir_ls):
 
     reqv_cpy = req._vols[:]
     reqc_cpy = req._chps[:]
+
     only_file = len(dir_ls) == 1
 
     for f in dir_ls:
-        # !!!
         fo = _parsers.ParseFile(f.name, title)
 
         if not apply_tag_filters(fo, title):
             _g.log.info('** filtered out {}'.format(fo._f))
             continue
 
-        vq = []
-        cq = []
+        vq   = []
+        cq   = []
         apnd = False
 
         if only_file and not any((fo._vols, fo._chps, fo._all)):
@@ -315,9 +315,9 @@ def walk_thru_listing(req, title, dir_ls):
         # needs to be completely rewritten.
         if (len(req._chps) > 1 and len(fo._chps) == len(req._chps)
            and req._chps[0] == fo._chps[0]):
-            rmax = None
+            rmax  = None
             fomax = None
-            last = req._chps[0]
+            last  = req._chps[0]
 
             for i in range(1, len(req._chps)):
                 if req._chps[i] == last+1:
@@ -381,6 +381,7 @@ def walk_thru_listing(req, title, dir_ls):
 
         if vq:
             _g.log.info('found vol {}'.format(vq))
+
         if cq:
             _g.log.info('found chp {}'.format(cq))
 
@@ -508,8 +509,8 @@ def logfile_filter(record):
     return 1
 
 def init_config():
-    c = None
-    alltags = []
+    c          = None
+    alltags    = []
     VALID_OPTS = {
         'tags'      ,
         'no_output' ,
@@ -525,8 +526,8 @@ def init_config():
     binopt = {True, False}
 
     VALID_OPTVAL_NO_OUTPUT = binopt
-    VALID_OPTVAL_LOGFILE = None
-    VALID_OPTVAL_LOGLEVEL = {
+    VALID_OPTVAL_LOGFILE   = None
+    VALID_OPTVAL_LOGLEVEL  = {
         'verbose' ,
         'debug'   ,
         'all'     ,
@@ -537,13 +538,13 @@ def init_config():
     VALID_OPTVAL_USER           = None
     VALID_OPTVAL_PASS           = None
 
-    DEFAULT_OPTVAL_NO_OUTPUT = False
-    DEFAULT_OPTVAL_LOGFILE   = None
-    DEFAULT_OPTVAL_LOGLEVEL  = 'verbose'
-    DEFAULT_OPTVAL_USECACHE  = False
+    DEFAULT_OPTVAL_NO_OUTPUT      = False
+    DEFAULT_OPTVAL_LOGFILE        = None
+    DEFAULT_OPTVAL_LOGLEVEL       = 'verbose'
+    DEFAULT_OPTVAL_USECACHE       = False
     # set after we get local $HOME
-    DEFAULT_OPTVAL_CACHEFILE = lambda h: os.path.join(h, '.cache', 'madodl',
-                                                      'files.json')
+    DEFAULT_OPTVAL_CACHEFILE      = lambda h: os.path.join(h, '.cache',
+                                                      'madodl', 'files.json')
     DEFAULT_OPTVAL_DEFAULT_OUTDIR = os.getcwd()
     DEFAULT_OPTVAL_USER           = None
     DEFAULT_OPTVAL_PASS           = None
@@ -804,7 +805,7 @@ def get_listing(manga):
             return (mdir, title, path)
 
     qout = search_query(manga).getvalue().decode()
-    qp = _parsers.ParseQuery()
+    qp   = _parsers.ParseQuery()
     qp.feed(qout)
 
     # FIXME:
@@ -812,7 +813,7 @@ def get_listing(manga):
     # filter out non-manga results until
     # madokami allows for this granularity itself.
     qp.mresultnum = 0
-    qp.mresults = []
+    qp.mresults   = []
     for url, r in qp.results:
         if r.startswith('/Manga') and r.count('/') >= 5:
             qp.mresults.append([url,r])
@@ -892,9 +893,9 @@ def rem_subdir_recurse(listing, path, depth=1):
         # XXX: while highly unlikely that whitespace gives any significant
         # distinction beyond one space, the split() module splits by any amount         # of wspace; thus, when re-join()ed, any extra wspace is truncated to
         # one space.
-        fields = listing[idx].split()
+        fields        = listing[idx].split()
         d_or_f, fname = (fields[0][:1], ' '.join(fields[8:]))
-        this_path = ''.join([path, '/', fname])
+        this_path     = ''.join([path, '/', fname])
 
         if d_or_f == 'd':
             listing[idx] = rem_subdir_recurse(search_exact(this_path, True)
@@ -917,7 +918,7 @@ def main_loop(manga_list):
     global compc, compv
 
     for m in manga_list:
-            req = _parsers.ParseRequest(m)
+            req               = _parsers.ParseRequest(m)
             sout, title, path = get_listing(req._name)
 
             if _g.conf._usecache and not isinstance(sout, str):
@@ -948,7 +949,7 @@ def main_loop(manga_list):
                 ppfx = ''.join(('https://', loc['DOMAIN'], loc['MLOC']))
 
                 try:
-                    stdscr = unicurses.initscr()
+                    stdscr          = unicurses.initscr()
                     _g.conf._stdscr = stdscr
                     unicurses.noecho()
 
@@ -998,7 +999,8 @@ def main_loop(manga_list):
 def main():
     try:
         _g.conf = Struct()
-        args = init_args()
+        args    = init_args()
+
         local_import()
         init_config()
 
