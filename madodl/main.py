@@ -815,7 +815,7 @@ def get_listing(manga):
     qp.mresultnum = 0
     qp.mresults   = []
     for url, r in qp.results:
-        if r.startswith('/Manga') and r.count('/') >= 5:
+        if r.startswith('/Manga') and r.count('/') == 5:
             qp.mresults.append([url,r])
             qp.mresultnum += 1
 
@@ -996,7 +996,7 @@ def main_loop(manga_list):
 
                 print('done', file=sys.stderr)
             else:
-                _out._('could not find requested volume/chapters.')
+                _out._('could not find any requested volume/chapters.')
                 return 1
 
     return 0
