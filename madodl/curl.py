@@ -177,9 +177,6 @@ def curl_to_file(url, fname, proto, port=None):
     with open(os.path.join(_g.conf._outdir, fname), 'wb') as fh:
         c = curl_common_init(fh)
 
-        #if proto == 'HTTP':
-        #    url = urllib.parse.quote(url)
-
         c.setopt(c.URL, url) #'/'.join(rempath, urllib.parse.quote(fname)))
         c.setopt(c.NOPROGRESS, False)
         c.setopt(c.XFERINFOFUNCTION, curl_progress)

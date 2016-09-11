@@ -10,7 +10,7 @@
 import os, sys
 from io        import BytesIO
 from itertools import chain
-from urllib    import parse
+import urllib.parse
 import argparse
 import logging
 import logging.handlers
@@ -74,7 +74,7 @@ def search_exact(name='', have_path=False):
     buf = BytesIO()
 
     # need to unquote for LIST to work properly with nocwd
-    name = parse.unquote(name)
+    name = urllib.parse.unquote(name)
     path = _util.create_nwo_path(name) if not have_path else ''
 
     c = _curl.curl_common_init(buf)
@@ -90,8 +90,6 @@ def search_exact(name='', have_path=False):
     path_noscheme = '{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name)
 
     _g.log.info('ftp://' + path_noscheme)
-
-    _g.conf._cururl = 'https://' + path_noscheme
 
     return _curl.curl_to_buf('ftp://' + path_noscheme, 'FTP', c, buf)
 
@@ -272,6 +270,7 @@ def walk_thru_listing(req, title, dir_ls):
                         continue
                     cq = []
                     break
+
         # TODO: add vol greedy match here
         if req._vols and not any({oerng_v, req._all}):
             too_many_vols = False
@@ -792,11 +791,12 @@ def get_listing(manga):
             if not mdir:
                 _g.log.warning("couldn't find title in JSON file. Trying "
                                "online query.")
+                _g.conf._found_in_cache = False
                 raise breaks.Break
 
+            _g.conf._found_in_cache = True
             _g.conf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
                                             loc['MLOC'], d1, d2, d3, title)
-            #dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
 
             _g.log.info('\n-----\n{}-----'.format(mdir))
 
@@ -861,18 +861,19 @@ def subdir_recurse(listing, path, depth=1):
 
     for idx in range(len(listing)):
         d_or_f, fname = (listing[idx]['type'], listing[idx]['name'])
-        this_path = ''.join([path, '/', fname])
+        this_path     = ''.join([path, '/', fname])
 
         if d_or_f == 'directory':
             listing[idx] = subdir_recurse(listing[idx]['contents'],
                                           this_path, depth+1)
         elif d_or_f == 'file':
-            title = Struct()
-            title.name = fname
-            title.path = this_path
-            listing[idx] = title
+            title          = Struct()
+            title.basename = path
+            title.name     = fname
+            title.path     = this_path
+            listing[idx]   = title
         else: # sanity check
-            _out.die('unsupported file type `{}`'.format(d_or_f))
+            _out.die('BUG: unsupported file type `{}`'.format(d_or_f))
 
     if depth != 1:
         return listing
@@ -903,11 +904,14 @@ def rem_subdir_recurse(listing, path, depth=1):
                                                 .decode()
                                                 .splitlines(),
                                               this_path, depth+1)
-        else: # is reg file
-            title = Struct()
-            title.name = fname
-            title.path = this_path
-            listing[idx] = title
+        elif d_or_f == '-': # is reg file
+            title          = Struct()
+            title.basename = path
+            title.name     = fname
+            title.path     = this_path
+            listing[idx]   = title
+        else: # sanity check
+            _out.die('BUG: unsupported file type `{}`'.format(d_or_f))
 
     if depth != 1:
         return listing
@@ -921,7 +925,7 @@ def main_loop(manga_list):
             req               = _parsers.ParseRequest(m)
             sout, title, path = get_listing(req._name)
 
-            if _g.conf._usecache and not isinstance(sout, str):
+            if _g.conf._usecache and _g.conf._found_in_cache:
                 sout = subdir_recurse(sout, path)
             else:
                 sout = sout.splitlines()
@@ -946,7 +950,11 @@ def main_loop(manga_list):
 
             if any((compfile, compc, compv)):
                 # XXX sigh...
-                ppfx = ''.join(('https://', loc['DOMAIN'], loc['MLOC']))
+                # need to append MLOC when we get a cache match.
+                ppfx = ''.join(('https://', loc['DOMAIN']))
+
+                if _g.conf._found_in_cache:
+                    ppfx = ''.join((ppfx, loc['MLOC']))
 
                 try:
                     stdscr          = unicurses.initscr()
@@ -958,9 +966,11 @@ def main_loop(manga_list):
                         _g.conf._stdscr.erase()
                         _g.conf._stdscr.addstr(0, 0, compfile.name)
                         _g.conf._stdscr.refresh()
-                        _curl.curl_to_file('/'.join((ppfx, compfile.path)) ,
-                                           compfile.name                   ,
-                                           'HTTP')
+                        _curl.curl_to_file('/'.join((ppfx, compfile.basename,
+                                                     urllib
+                                                       .parse
+                                                       .quote(compfile.name))),
+                                           compfile.name, 'HTTP')
                     elif compv or compc:
                         _out._('downloading volume/chapters... ', end='')
                         for f,v,c in allf:
@@ -971,7 +981,10 @@ def main_loop(manga_list):
                             _g.conf._stdscr.addstr(1, 0, 'current - {}'
                                                            .format(f.name))
                             _g.conf._stdscr.refresh()
-                            _curl.curl_to_file('/'.join((ppfx, f.path)),
+                            _curl.curl_to_file('/'.join((ppfx, f.basename,
+                                                         urllib
+                                                           .parse
+                                                           .quote(f.name))),
                                                f.name, 'HTTP')
                 except:
                     raise
