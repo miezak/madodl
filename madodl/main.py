@@ -1012,6 +1012,7 @@ def main_loop(manga_list):
 # - add -p switch
 # - allow non-manga DL's
 # - msg output w/ unicurses
+# - allow for pausing and skipping during DL
 #
 def main():
     try:
