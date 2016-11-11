@@ -5,6 +5,7 @@
 #
 
 import re
+import urllib.parse
 from itertools import chain
 
 import madodl.out as _out
@@ -69,6 +70,17 @@ def create_nwo_path(name):
     name = name.upper()
 
     return re.sub(r'^(.)(.|)?(.|)?(.|)?.*', r'\1/\1\2/\1\2\3\4', name)
+
+def create_nwo_basename(path):
+    '''URL encode basename path when there are >= 4 dirs'''
+    if path.count('/') == 3:
+        return path
+
+    path   = path.split('/')
+    nwo_bn = path[:3]
+    nwo_bn.extend([urllib.parse.quote(d) for d in path[3:]])
+
+    return '/'.join(nwo_bn)
 
 def conv_bytes(bvar):
     if bvar / 1024**3 >= 1:

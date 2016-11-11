@@ -951,10 +951,10 @@ def main_loop(manga_list):
             if any((compfile, compc, compv)):
                 # XXX sigh...
                 # need to append MLOC when we get a cache match.
-                ppfx = ''.join(('https://', loc['DOMAIN']))
+                ppfx = ''.join(['https://', loc['DOMAIN']])
 
                 if _g.conf._found_in_cache:
-                    ppfx = ''.join((ppfx, loc['MLOC']))
+                    ppfx = ''.join([ppfx, loc['MLOC']])
 
                 try:
                     stdscr          = unicurses.initscr()
@@ -966,10 +966,12 @@ def main_loop(manga_list):
                         _g.conf._stdscr.erase()
                         _g.conf._stdscr.addstr(0, 0, compfile.name)
                         _g.conf._stdscr.refresh()
-                        _curl.curl_to_file('/'.join((ppfx, compfile.basename,
+                        _curl.curl_to_file('/'.join([ppfx, 
+                                                     _util.create_nwo_basename(
+                                                        compfile.basename),
                                                      urllib
                                                        .parse
-                                                       .quote(compfile.name))),
+                                                       .quote(compfile.name)]),
                                            compfile.name, 'HTTP')
                     elif compv or compc:
                         _out._('downloading volume/chapters... ', end='')
@@ -981,10 +983,12 @@ def main_loop(manga_list):
                             _g.conf._stdscr.addstr(1, 0, 'current - {}'
                                                            .format(f.name))
                             _g.conf._stdscr.refresh()
-                            _curl.curl_to_file('/'.join((ppfx, f.basename,
+                            _curl.curl_to_file('/'.join([ppfx,
+                                                         _util
+                                                           .create_nwo_basename(                                                             f.basename),
                                                          urllib
                                                            .parse
-                                                           .quote(f.name))),
+                                                           .quote(f.name)]),
                                                f.name, 'HTTP')
                 except:
                     raise

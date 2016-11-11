@@ -4,3 +4,4 @@
 # global variables shared amongst the modules.
 # these are added by main.py
 #
+# XXX conf object is overloaded...
