@@ -1,3 +1,16 @@
+## [v0.2.2] - 2016-11-10
+### Fixed
+* Updated domain to `.al`
+* `parsers.py`: Fixed a bug in the `RNG` regex that caused a `.` character placed directly in-front of the extension to be incorrectly interpreted as a `RNG` token.
+* All download requests are now (hopefully) properly percent-encoded.
+* Don't display sub-directories in query output.
+
+### Changed
+* FTP LISTings are now fetched with the `nocwd` cURL option. This adds a noticable speed increase when looking up the directory listing remotely.
+* Lots of style changes.
+* Various non-functional code changes.
+* Small message output changes for clarity.
+
 ## [v0.2.1] - 2016-04-27
 ### Fixed
 * `apply_tag_filters()` regression.
@@ -95,6 +108,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.2.2]: https://github.com/miezak/madodl/compare/v0.2.1...v0.2.2
 [v0.2.1]: https://github.com/miezak/madodl/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/miezak/madodl/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/miezak/madodl/compare/v0.1.0...v0.1.1
