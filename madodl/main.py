@@ -8,8 +8,9 @@
 #
 
 import os, sys
-from io import BytesIO
+from io        import BytesIO
 from itertools import chain
+import urllib.parse
 import argparse
 import logging
 import logging.handlers
@@ -18,6 +19,7 @@ import json
 
 def local_import():
     global _curl, _parsers, _util, _out
+
     import madodl.curl    as _curl
     import madodl.parsers as _parsers
     import madodl.util    as _util
@@ -50,14 +52,14 @@ except ImportError:
     dep404('PyYAML')
 
 loc = {
-    'DOMAIN'   : 'manga.madokami.com' ,
-    'API'      : '/stupidapi/'        ,
-    'USER'     : 'homura'             ,
-    'PASS'     : 'megane'             ,
-    'FTPPORT'  : 24430                ,
-    'SFTPPORT' : 38460                ,
-    'MLOC'     : '/Manga/'            ,
-    'SEARCH'   : '/search?q='         ,
+    'DOMAIN'   : 'manga.madokami.al' ,
+    'API'      : '/stupidapi/'       ,
+    'USER'     : 'homura'            ,
+    'PASS'     : 'megane'            ,
+    'FTPPORT'  : 24430               ,
+    'SFTPPORT' : 38460               ,
+    'MLOC'     : '/Manga/'           ,
+    'SEARCH'   : '/search?q='        ,
 }
 _g.loc = loc
 
@@ -65,35 +67,47 @@ _g.loc = loc
 class Struct:
     pass
 
-def search_exact(name='', ml=False):
+#
+# returns an FTP LISTing
+#
+def search_exact(name='', have_path=False):
     buf = BytesIO()
-    path = _util.create_nwo_path(name) if not ml else ''
+
+    # need to unquote for LIST to work properly with nocwd
+    name = urllib.parse.unquote(name)
+    path = _util.create_nwo_path(name) if not have_path else ''
+
     c = _curl.curl_common_init(buf)
-    c.setopt(c.DIRLISTONLY, True)
+
+    #c.setopt(c.DIRLISTONLY, True)
     c.setopt(c.USE_SSL, True)
     c.setopt(c.SSL_VERIFYPEER, False)
     c.setopt(c.USERPWD, '{}:{}'.format(loc['USER'], loc['PASS']))
     c.setopt(c.PORT, loc['FTPPORT'])
-    ml = loc['MLOC'] if not ml else ''
-    _g.log.info('ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
-    _g.conf._cururl = \
-    os.path.join('https://', loc['DOMAIN'], ml, path) + name
-    c.setopt(c.URL, 'ftp://{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name))
-    c.perform()
-    c.close()
-    return buf
+
+    ml = loc['MLOC'] if not have_path else ''
+
+    path_noscheme = '{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name)
+
+    _g.log.info('ftp://' + path_noscheme)
+
+    return _curl.curl_to_buf('ftp://' + path_noscheme, 'FTP', c, buf)
 
 def search_query(name=''):
     return _curl.curl_to_buf('https://{}{}{}'.format(loc['DOMAIN'],
-                                                     loc['SEARCH'], name))
+                                                     loc['SEARCH'], name),
+                             'HTTP')
 
 def apply_tag_filters(f, title):
     f._preftag  = False
     f._npreftag = False
+
     if not f._tag or not _g.conf._alltags:
         return True
+
     taglow = [t.lower() for t in f._tag]
     titlelow = title.lower()
+
     for t in _g.conf._alltags:
         _g.log.info('apply_tag_filters(): {} {} {} {}'.format(t._name,
                                                         t._filter, t._case,
@@ -102,9 +116,10 @@ def apply_tag_filters(f, title):
                                                         taglow))
         if t._name.lower() in taglow:
             if ((t._case == 'exact' and t._name not in f._tag) or
-               (t._case == 'upper' and t._name not in
+                (t._case == 'upper' and t._name not in
                                        [t.upper() for t in f._tag])):
                 return True
+
             curtag = t._name.lower()
             # we need to check the `for` sub-opt before actually checking
             # the filter to make sure we don't apply the filters to titles
@@ -120,12 +135,14 @@ def apply_tag_filters(f, title):
                     break # need this too
                 else:
                     return True
+
                 if mreq != 'all':
                     if (_util.common_elem(f._vols, mreq._vols) or
                         _util.common_elem(f._chps, mreq._chps)):
                         pass
                     else:
                         return True
+
             if t._filter == 'out':
                 del f
                 return False
@@ -137,6 +154,7 @@ def apply_tag_filters(f, title):
             if t._filter == 'only':
                 del f
                 return False
+
     return True
 
 def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
@@ -149,6 +167,7 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
         ftupidx = 2
         what = 'chp'
         whatls = fo._chps
+
     if fo._preftag:
             for ftup in allf:
                 if vc in ftup[ftupidx]:
@@ -169,6 +188,7 @@ def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
         else:
             _g.log.warning('dup vol and chps seen')
             return 'break'
+
         _g.log.info('replacing nonpreferred {} '
                  'with {}'.format(tup[0], fo._f))
         allf.remove(tup)
@@ -191,45 +211,49 @@ def walk_thru_listing(req, title, dir_ls):
        matched (volumes, chapters, filenames), and the complete archive
        filename (if matched) in the case that all volumes are requested.
     '''
-    compv = []
-    compc = []
-    allf = []
-    npref = []
+    compv    = []
+    compc    = []
+    allf     = []
+    npref    = []
     compfile = None
+
     if req._vols and req._vols[-1] == req.ALL:
         oerng_v = True
         oest_v = req._vols[-2]
     else:
         oerng_v = False
+
     if req._chps and req._chps[-1] == req.ALL:
         oerng_c = True
         oest_c = req._chps[-2]
     else:
         oerng_c = False
+
     reqv_cpy = req._vols[:]
     reqc_cpy = req._chps[:]
-    only_file = len(dir_ls.splitlines()) == 1
 
-    for f in dir_ls.splitlines():
-        # FIXME:
-        # handle this in a more fail-safe manner.
-        if f == 'Viz Releases':
-            continue # a common sub-dir
-        fo = _parsers.ParseFile(f, title)
+    only_file = len(dir_ls) == 1
+
+    for f in dir_ls:
+        fo = _parsers.ParseFile(f.name, title)
+
         if not apply_tag_filters(fo, title):
             _g.log.info('** filtered out {}'.format(fo._f))
             continue
-        vq = []
-        cq = []
+
+        vq   = []
+        cq   = []
         apnd = False
+
         if only_file and not any((fo._vols, fo._chps, fo._all)):
             # a single file with no prefix of anykind is most likely a complete
             # entry.
             fo._all = True
+
         if fo._all and req._all:
             # XXX need pref filt handling here
             _g.log.info('found complete archive\n'
-                        'file - {}'.format(f))
+                        'file - {}'.format(f.name))
             compfile = f
             break
         elif req._all and not req._vols:
@@ -246,15 +270,19 @@ def walk_thru_listing(req, title, dir_ls):
                         continue
                     cq = []
                     break
+
         # TODO: add vol greedy match here
         if req._vols and not any({oerng_v, req._all}):
             too_many_vols = False
+
             for v in fo._vols:
                 if v not in req._vols:
                     too_many_vols = True
                     break
+
             if too_many_vols:
                 continue
+
         for fov in fo._vols:
             if (oerng_v and fov >= oest_v) or req._all or fov in req._vols:
                 if fov in compv: # already seen this vol
@@ -278,6 +306,7 @@ def walk_thru_listing(req, title, dir_ls):
                 else:
                     apnd = True
                     vq.append(fov)
+
         if apnd:
             cq.extend(fo._chps)
 
@@ -285,34 +314,41 @@ def walk_thru_listing(req, title, dir_ls):
         # needs to be completely rewritten.
         if (len(req._chps) > 1 and len(fo._chps) == len(req._chps)
            and req._chps[0] == fo._chps[0]):
-            rmax = None
+            rmax  = None
             fomax = None
-            last = req._chps[0]
+            last  = req._chps[0]
+
             for i in range(1, len(req._chps)):
                 if req._chps[i] == last+1:
                     rmax = req._chps[i]
                 else:
                     break
                 last = req._chps[i]
+
             last = fo._chps[0]
+
             for i in range(1, len(fo._chps)):
                 if fo._chps[i] == last+1:
                     fomax = fo._chps[i]
                 else:
                     break
                 last = fo._chps[i]
+
             if None in {rmax, fomax} or rmax != fomax:
                 pass
             else:
                 iter_celems = _util.common_elem_gen(req._chps, (cq, compc),
                                                     flat=False)
+
                 for cclash in iter_celems:
                     check_preftags(cclash, cq, fo, allf, npref, False)
+
                 for i in req._chps:
                     if i <= rmax:
                         cq.append(float(i))
                     else:
                         break
+
         if req._chps:
             if oerng_c and fo._chps and min(fo._chps) >= oest_c:
                 for c in fo._chps:
@@ -335,34 +371,46 @@ def walk_thru_listing(req, title, dir_ls):
                             cq.append(c)
                         else: # in queue, check preftags
                             act = check_preftags(c, cq, fo, allf, npref, False)
+
                             if act == 'break'   : break
                             if act == 'continue':
                                 # always npref, continue is simply explicit
                                 cq.append(c)
                                 continue
+
         if vq:
             _g.log.info('found vol {}'.format(vq))
+
         if cq:
             _g.log.info('found chp {}'.format(cq))
+
         if vq or cq:
             if fo._npreftag:
                 npref.append((f, vq, cq))
+
             allf.append((f, vq, cq))
-            _g.log.info('file - {}'.format(f))
+
+            _g.log.info('file - {}'.format(f.name))
+
         compv.extend(vq)
         compc.extend(cq)
+
         _util.rm_req_elems(reqv_cpy, vq)
         _util.rm_req_elems(reqc_cpy, cq)
+
         compv = list(set(compv))
         compc = list(set(compc))
+
     compv = sorted(compv)
     compc = sorted(compc)
+
     return (compv, compc, allf, compfile)
 
 def init_args():
 
     def output_file(f):
         f = os.path.normpath(f)
+
         if not os.path.exists(f):
             try:
                 os.makedirs(f)
@@ -376,6 +424,7 @@ def init_args():
         elif not os.access(f, os.R_OK | os.W_OK | os.X_OK):
             raise argparse.ArgumentTypeError(
                 'Insufficient permissions to write to {} directory.'.format(f))
+
         if f[-1] != os.sep:
             f += os.sep
 
@@ -415,7 +464,9 @@ def init_args():
                              help='directory to save files to')
     args_parser.add_argument('-a', dest='auth', metavar='user:pw',
                             help='madokami user and password')
+
     args = args_parser.parse_args()
+
     if args.silent:
         loglvl = logging.CRITICAL
     elif args.debug:
@@ -424,15 +475,22 @@ def init_args():
         loglvl = logging.INFO
     else:
         loglvl = logging.ERROR
+
     global _g, silent
+
     silent = args.silent
+
     _g.log = logging.getLogger('stream_logger')
+
     _g.log.setLevel(loglvl)
+
     cons_hdlr = logging.StreamHandler()
     cons_hdlr.setLevel(loglvl)
+
     logfmt = logging.Formatter('madodl: %(filename)s: %(funcName)s(): '
                                '%(levelname)s: %(message)s')
     cons_hdlr.setFormatter(logfmt)
+
     _g.log.addHandler(cons_hdlr)
 
     return args
@@ -442,15 +500,16 @@ def nullfilter(r): return 0
 def logfile_filter(record):
     if _g.conf._loglevel == 'all':
         return 1
+
     if ((record.levelname == 'DEBUG' and _g.conf._loglevel != 'debug') or
-       (record.levelname == 'INFO' and _g.conf._loglevel != 'verbose')):
+        (record.levelname == 'INFO'  and _g.conf._loglevel != 'verbose')):
         return 0
 
     return 1
 
 def init_config():
-    c = None
-    alltags = []
+    c          = None
+    alltags    = []
     VALID_OPTS = {
         'tags'      ,
         'no_output' ,
@@ -464,29 +523,30 @@ def init_config():
     # for valid option values
     # None = an option whose validity cannot be ascertained
     binopt = {True, False}
+
     VALID_OPTVAL_NO_OUTPUT = binopt
-    VALID_OPTVAL_LOGFILE = None
-    VALID_OPTVAL_LOGLEVEL = {
+    VALID_OPTVAL_LOGFILE   = None
+    VALID_OPTVAL_LOGLEVEL  = {
         'verbose' ,
         'debug'   ,
         'all'     ,
     }
-    VALID_OPTVAL_USECACHE = binopt
-    VALID_OPTVAL_CACHEFILE = None
+    VALID_OPTVAL_USECACHE       = binopt
+    VALID_OPTVAL_CACHEFILE      = None
     VALID_OPTVAL_DEFAULT_OUTDIR = None
-    VALID_OPTVAL_USER = None
-    VALID_OPTVAL_PASS = None
+    VALID_OPTVAL_USER           = None
+    VALID_OPTVAL_PASS           = None
 
-    DEFAULT_OPTVAL_NO_OUTPUT = False
-    DEFAULT_OPTVAL_LOGFILE = None
-    DEFAULT_OPTVAL_LOGLEVEL = 'verbose'
-    DEFAULT_OPTVAL_USECACHE = False
+    DEFAULT_OPTVAL_NO_OUTPUT      = False
+    DEFAULT_OPTVAL_LOGFILE        = None
+    DEFAULT_OPTVAL_LOGLEVEL       = 'verbose'
+    DEFAULT_OPTVAL_USECACHE       = False
     # set after we get local $HOME
-    DEFAULT_OPTVAL_CACHEFILE = lambda h: os.path.join(h, '.cache', 'madodl',
-                                                      'files.json')
+    DEFAULT_OPTVAL_CACHEFILE      = lambda h: os.path.join(h, '.cache',
+                                                      'madodl', 'files.json')
     DEFAULT_OPTVAL_DEFAULT_OUTDIR = os.getcwd()
-    DEFAULT_OPTVAL_USER = None
-    DEFAULT_OPTVAL_PASS = None
+    DEFAULT_OPTVAL_USER           = None
+    DEFAULT_OPTVAL_PASS           = None
 
     class TagFilter:
         VALID_CASE = {
@@ -501,37 +561,49 @@ def init_config():
             'prefer'     ,
             'not prefer' ,
         }
-        DEFAULT_CASE = 'any'
+
+        DEFAULT_CASE   = 'any'
         DEFAULT_FILTER = 'prefer'
-        DEFAULT_FOR = 'all'
+        DEFAULT_FOR    = 'all'
+
         def __init__(self, tag, default=False):
             self._tag = tag
             self._for = []
+
             if 'name' not in self._tag:
                 _g.log.error('empty name in config tag filter')
                 raise yaml.YAMLError
+
             self._name = self._tag['name']
+
             if default:
                 self._case = self.DEFAULT_CASE
                 self._filter = self.DEFAULT_FILTER
                 self._for = self.DEFAULT_FOR
                 return
+
             if 'case' not in self._tag:
                 self._case = self.DEFAULT_CASE
             else:
                 self._case = self._tag['case']
+
             if 'filter' not in self._tag:
                 self._filter = self.DEFAULT_FILTER
             else:
                 self._filter = self._tag['filter']
+
             if 'for' not in self._tag:
                 self._for = self.DEFAULT_FOR
+
             if self._case not in self.VALID_CASE:
                 _g.log.error('bad case value for {}'.format(self._tag['name']))
                 self._case = self.DEFAULT_CASE
+
             if self._filter not in self.VALID_FILTER:
-                _g.log.error('bad filter value for {}'.format(self._tag['name']))
+                _g.log.error('bad filter value for {}'
+                               .format(self._tag['name']))
                 self._filter = self.DEFAULT_FILTER
+
             if self._for == 'all' or self._tag['for'] in ('all',['all']):
                 return
             else:
@@ -557,6 +629,7 @@ def init_config():
             setattr(_g.conf, '_{}'.format(opt), default)
 
     _g.conf._home = h = os.path.expanduser('~')
+
     if os.name == 'posix':
         if os.path.exists('{0}/.config/madodl/config.yml'.format(h)):
             c = '{0}/.config/madodl/config.yml'.format(h)
@@ -574,39 +647,48 @@ def init_config():
     else:
         _g.log.warning('madodl doesn`t current support a config file on your '
                        'OS. Using defaults.')
+
     if not c:
         # XXX check back
         # FIXME: these should be None!
-        _g.conf._user = ''
-        _g.conf._pass = ''
-        _g.conf._alltags = ''
+        _g.conf._user           = ''
+        _g.conf._pass           = ''
+        _g.conf._alltags        = ''
         _g.conf._default_outdir = DEFAULT_OPTVAL_DEFAULT_OUTDIR
-        _g.conf._no_output = DEFAULT_OPTVAL_NO_OUTPUT
-        _g.conf._usecache = DEFAULT_OPTVAL_USECACHE
-        _g.conf._cachefile = DEFAULT_OPTVAL_CACHEFILE
+        _g.conf._no_output      = DEFAULT_OPTVAL_NO_OUTPUT
+        _g.conf._usecache       = DEFAULT_OPTVAL_USECACHE
+        _g.conf._cachefile      = DEFAULT_OPTVAL_CACHEFILE
         return
+
     with open(c) as cf:
         try:
             yh = yaml.safe_load(cf)
+
             for opt in yh.keys():
                 if opt not in VALID_OPTS:
                     raise ConfigError('bad option `{}` in config file'
                                        .format(opt))
+
             if 'tags' in yh and yh['tags']:
                 for t in yh['tags']:
                     alltags.append(TagFilter(t))
+
             _g.conf._alltags = alltags
+
             set_simple_opt(yh, 'no_output', VALID_OPTVAL_NO_OUTPUT,
                            DEFAULT_OPTVAL_NO_OUTPUT)
             set_simple_opt(yh, 'logfile', VALID_OPTVAL_LOGFILE,
                            DEFAULT_OPTVAL_LOGFILE)
+
             if _g.conf._logfile:
                 set_simple_opt(yh, 'loglevel', VALID_OPTVAL_LOGLEVEL,
                                DEFAULT_OPTVAL_LOGLEVEL)
+
                 if _g.conf._loglevel in {'debug', 'all'}:
                     loglvl = logging.DEBUG
                 else:
                     loglvl = logging.INFO
+
                 # by default, log files will rotate at 10MB with one bk file.
                 logfile_hdlr = logging.handlers.RotatingFileHandler(
                     _g.conf._logfile, maxBytes=10e6, backupCount=1)
@@ -615,16 +697,20 @@ def init_config():
                 _g.log.addHandler(logfile_hdlr)
             else:
                 _g.conf._loglevel = None
+
             set_simple_opt(yh, 'usecache', VALID_OPTVAL_USECACHE,
                            DEFAULT_OPTVAL_USECACHE)
+
             if _g.conf._usecache:
                 set_simple_opt(yh, 'cachefile', VALID_OPTVAL_CACHEFILE,
                                DEFAULT_OPTVAL_CACHEFILE(h))
             else:
                 _g.conf._cachefile = DEFAULT_OPTVAL_CACHEFILE
+
             set_simple_opt(yh, 'default_outdir', VALID_OPTVAL_DEFAULT_OUTDIR,
                            DEFAULT_OPTVAL_DEFAULT_OUTDIR)
             set_simple_opt(yh, 'user', VALID_OPTVAL_USER, DEFAULT_OPTVAL_USER)
+
             if _g.conf._user:
                 set_simple_opt(yh, 'pass', VALID_OPTVAL_USER,
                                DEFAULT_OPTVAL_PASS)
@@ -649,13 +735,17 @@ class breaks(object):
         error = self.value.__exit__(etype, value, traceback)
         if etype == self.Break:
             return True
+
         return error
 
 def get_listing(manga):
     badret = ('', '')
+
     if _g.conf._usecache:
+        # XXX move this
         def match_dir(diriter, ldict):
             global mlow
+
             try:
                 cdir = next(diriter)
             except StopIteration:
@@ -663,54 +753,75 @@ def get_listing(manga):
                     if cdict['name'].lower() == mlow:
                         return (cdict['contents'], cdict['name'])
                 return None
+
             for cdict in ldict:
                 if cdict['name'] == cdir:
                     return match_dir(diriter, cdict['contents'])
             else:
                 return None
-        jsonloc =                                                     \
-        os.path.join(_g.conf._home, '.cache', 'madodl', 'files.json') \
-        if not _g.conf._cachefile else _g.conf._cachefile
+
+        jsonloc = os.path.join(_g.conf._home, '.cache', 'madodl',
+                               'files.json') \
+            if not _g.conf._cachefile else _g.conf._cachefile
+
         jsondirloc = os.path.dirname(jsonloc)
+
         if not os.path.exists(jsonloc):
             os.makedirs(jsondirloc, 0o770, True)
             _curl.curl_json_list(jsonloc, True)
+
         assert os.path.exists(jsonloc)
-        d1,d2,d3 = _util.create_nwo_path(manga).split('/')
+
+        path = _util.create_nwo_path(manga)
+        d1,d2,d3 = path.split('/')
         mdir = None
+
         with breaks(open(jsonloc, errors='surrogateescape')) as f:
             jobj = json.load(f)
+
             for o in jobj[0].get('contents'):
                 if o['name'] == 'Manga':
                     jobj = o['contents']
                     break
+
             global mlow
             mlow = manga.lower()
             mdir, title = match_dir(iter((d1,d2,d3)), jobj) or badret
+
             if not mdir:
                 _g.log.warning("couldn't find title in JSON file. Trying "
                                "online query.")
+                _g.conf._found_in_cache = False
                 raise breaks.Break
+
+            _g.conf._found_in_cache = True
             _g.conf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
                                             loc['MLOC'], d1, d2, d3, title)
-            dirls = '\n'.join([f['name'] for f in mdir]) + '\n'
-            _g.log.info('\n-----\n{}-----'.format(dirls))
-            return (dirls, title)
+
+            _g.log.info('\n-----\n{}-----'.format(mdir))
+
+            path = '/'.join((path, title))
+
+            return (mdir, title, path)
+
     qout = search_query(manga).getvalue().decode()
-    qp = _parsers.ParseQuery()
+    qp   = _parsers.ParseQuery()
     qp.feed(qout)
+
     # FIXME:
     # this is a temporary workaround to
     # filter out non-manga results until
     # madokami allows for this granularity itself.
     qp.mresultnum = 0
-    qp.mresults = []
+    qp.mresults   = []
     for url, r in qp.results:
-        if r.startswith('/Manga') and r.count('/') >= 5:
+        if r.startswith('/Manga') and r.count('/') == 5:
             qp.mresults.append([url,r])
             qp.mresultnum += 1
+
     if qp.mresultnum == 0:
         _out.die('manga not found')
+
     if qp.mresultnum > 1:
         print('Multiple matches found. Please choose from the '
               'selection below:\n')
@@ -718,7 +829,9 @@ def get_listing(manga):
         for url, f in qp.mresults:
             print('{}: {}'.format(i, os.path.basename(f)))
             i += 1
+
         print()
+
         while 1:
             try:
                 ch = int(input('choice > '))
@@ -727,55 +840,156 @@ def get_listing(manga):
                 print('Pick a number between 1 and {}'.format(i-1))
             except ValueError:
                 print('Invalid input.')
+
         m = qp.mresults[ch-1][0]
         title = os.path.basename(qp.mresults[ch-1][1])
     else:
         m = qp.mresults[0][0]
         title = os.path.basename(qp.mresults[0][1])
         _out._('one match found: {}'.format(title))
+
     dirls = search_exact(m, True).getvalue().decode()
 
     _g.log.info('\n-----\n{}-----'.format(dirls))
-    return (dirls, title)
+
+    return (dirls, title, m)
+
+def subdir_recurse(listing, path, depth=1):
+    # XXX add a knob for this
+    if depth > 256:
+        _out.die('reached max recursion depth')
+
+    for idx in range(len(listing)):
+        d_or_f, fname = (listing[idx]['type'], listing[idx]['name'])
+        this_path     = ''.join([path, '/', fname])
+
+        if d_or_f == 'directory':
+            listing[idx] = subdir_recurse(listing[idx]['contents'],
+                                          this_path, depth+1)
+        elif d_or_f == 'file':
+            title          = Struct()
+            title.basename = path
+            title.name     = fname
+            title.path     = this_path
+            listing[idx]   = title
+        else: # sanity check
+            _out.die('BUG: unsupported file type `{}`'.format(d_or_f))
+
+    if depth != 1:
+        return listing
+
+    return _util.flatten_sublists(listing)
+
+def rem_subdir_recurse(listing, path, depth=1):
+    # XXX add a knob for this
+    if depth > 256:
+        _out.die('reached max recursion depth')
+
+    for idx in range(len(listing)):
+        # madokami's FTP LIST format is long ls, [{}/ are meta tokens]:
+        # {d,-}rwxrwxrwx 1 u g sz mon day y/time fname
+        #  |                                     |
+        #  |=> directory or regular file         |=> filename
+        #
+        # XXX: while highly unlikely that whitespace gives any significant
+        # distinction beyond one space, the split() module splits by any amount         # of wspace; thus, when re-join()ed, any extra wspace is truncated to
+        # one space.
+        fields        = listing[idx].split()
+        d_or_f, fname = (fields[0][:1], ' '.join(fields[8:]))
+        this_path     = ''.join([path, '/', fname])
+
+        if d_or_f == 'd':
+            listing[idx] = rem_subdir_recurse(search_exact(this_path, True)
+                                                .getvalue()
+                                                .decode()
+                                                .splitlines(),
+                                              this_path, depth+1)
+        elif d_or_f == '-': # is reg file
+            title          = Struct()
+            title.basename = path
+            title.name     = fname
+            title.path     = this_path
+            listing[idx]   = title
+        else: # sanity check
+            _out.die('BUG: unsupported file type `{}`'.format(d_or_f))
+
+    if depth != 1:
+        return listing
+
+    return _util.flatten_sublists(listing)
 
 def main_loop(manga_list):
     global compc, compv
+
     for m in manga_list:
-            req = _parsers.ParseRequest(m)
-            sout, title = get_listing(req._name)
+            req               = _parsers.ParseRequest(m)
+            sout, title, path = get_listing(req._name)
+
+            if _g.conf._usecache and _g.conf._found_in_cache:
+                sout = subdir_recurse(sout, path)
+            else:
+                sout = sout.splitlines()
+                sout = rem_subdir_recurse(sout, path)
+
             compv, compc, allf, compfile = walk_thru_listing(req, title, sout)
+
             if req._vols and req._vols[-1] == req.ALL:
                 del req._vols[-1]
+
             if req._chps and req._chps[-1] == req.ALL:
                 del req._chps[-1]
+
             missv = str([v for v in req._vols if v not in compv]).strip('[]')
             missc = str([c for c in req._chps if c not in compc]).strip('[]')
+
             if missv:
                 _out._("couldn't find vol(s): " + missv)
+
             if missc:
                 _out._("couldn't find chp(s): " + missc)
+
             if any((compfile, compc, compv)):
+                # XXX sigh...
+                # need to append MLOC when we get a cache match.
+                ppfx = ''.join(['https://', loc['DOMAIN']])
+
+                if _g.conf._found_in_cache:
+                    ppfx = ''.join([ppfx, loc['MLOC']])
+
                 try:
-                    stdscr = unicurses.initscr()
+                    stdscr          = unicurses.initscr()
                     _g.conf._stdscr = stdscr
                     unicurses.noecho()
+
                     if compfile:
                         _out._('downloading complete archive... ', end='')
                         _g.conf._stdscr.erase()
-                        _g.conf._stdscr.addstr(0, 0, compfile)
+                        _g.conf._stdscr.addstr(0, 0, compfile.name)
                         _g.conf._stdscr.refresh()
-                        _curl.curl_to_file(compfile)
+                        _curl.curl_to_file('/'.join([ppfx, 
+                                                     _util.create_nwo_basename(
+                                                        compfile.basename),
+                                                     urllib
+                                                       .parse
+                                                       .quote(compfile.name)]),
+                                           compfile.name, 'HTTP')
                     elif compv or compc:
                         _out._('downloading volume/chapters... ', end='')
                         for f,v,c in allf:
                             #_g.log.info('DL ' + f)
                             _g.conf._stdscr.erase()
                             _g.conf._stdscr.addstr(0, 0, 'title - {}'
-                                                       .format(title))
+                                                           .format(title))
                             _g.conf._stdscr.addstr(1, 0, 'current - {}'
-                                                       .format(f))
+                                                           .format(f.name))
                             _g.conf._stdscr.refresh()
-                            _curl.curl_to_file(f)
+                            _curl.curl_to_file('/'.join([ppfx,
+                                                         _util
+                                                           .create_nwo_basename(                                                             f.basename),
+                                                         urllib
+                                                           .parse
+                                                           .quote(f.name)]),
+                                               f.name, 'HTTP')
                 except:
                     raise
                 finally:
@@ -783,45 +997,54 @@ def main_loop(manga_list):
                     _g.conf._stdscr.keypad(False)
                     unicurses.echo()
                     unicurses.endwin()
+
                 print('done', file=sys.stderr)
             else:
-                _out._('could not find requested volume/chapters.')
+                _out._('could not find any requested volume/chapters.')
                 return 1
 
     return 0
 
 #
 # TODO:
-# - handle sub-directories in file listing
 # - extension filters
 # - allow greedy v/c matching
 # - add -p switch
 # - allow non-manga DL's
+# - msg output w/ unicurses
+# - allow for pausing and skipping during DL
 #
 def main():
     try:
         _g.conf = Struct()
-        args = init_args()
+        args    = init_args()
+
         local_import()
         init_config()
+
         if args.outdir:
             _g.conf._outdir = args.outdir
         else:
             _g.conf._outdir = _g.conf._default_outdir
+
         if args.auth:
             up = args.auth.split(':', 1)
+
             if len(up) == 1 or '' in up:
                 _out.die('argument -a: bad auth format')
+
             _g.conf._user, _g.conf._pass = up
+
         if args.silent or _g.conf._no_output:
             # go ahead and set this so it is globally known.
             # there is no need for distinction at this point.
             _g.conf._no_output = True
             _g.log.addFilter(nullfilter)
+
         ret = main_loop(args.manga)
-    except (KeyboardInterrupt, EOFError):
+    except (KeyboardInterrupt, EOFError) as e:
         print()
-        _out._('caught user signal, exiting...')
+        _out._('caught {} signal, exiting...'.format(type(e).__name__))
         return 0
 
     return ret

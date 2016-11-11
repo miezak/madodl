@@ -5,6 +5,7 @@
 #
 
 import re
+import urllib.parse
 from itertools import chain
 
 import madodl.out as _out
@@ -23,10 +24,13 @@ def rm_req_elems(req, comp):
 def common_elem(iter1, iter2, flat=True):
     if not any((iter1, iter2)):
         return None
+
     loc1 = iter1
     loc2 = iter2
+
     if not flat:
         loc2 = chain.from_iterable(iter2)
+
     for elem in loc1:
         if elem in loc2:
             return elem
@@ -36,10 +40,13 @@ def common_elem(iter1, iter2, flat=True):
 def common_elem_gen(iter1, iter2, flat=True):
     if not any((iter1, iter2)):
         return None
+
     loc1 = iter1
     loc2 = iter2
+
     if not flat:
         loc2 = chain.from_iterable(iter2)
+
     for elem in loc1:
         if elem in loc2:
             yield elem
@@ -58,6 +65,42 @@ def create_nwo_path(name):
     if not name:
         _out.die('need a name with at least one character!')
         return None
+
     name = re.sub(r'^(the|an?) ', '', name, flags=re.I)
     name = name.upper()
+
     return re.sub(r'^(.)(.|)?(.|)?(.|)?.*', r'\1/\1\2/\1\2\3\4', name)
+
+def create_nwo_basename(path):
+    '''URL encode basename path when there are >= 4 dirs'''
+    if path.count('/') == 3:
+        return path
+
+    path   = path.split('/')
+    nwo_bn = path[:3]
+    nwo_bn.extend([urllib.parse.quote(d) for d in path[3:]])
+
+    return '/'.join(nwo_bn)
+
+def conv_bytes(bvar):
+    if bvar / 1024**3 >= 1:
+        ret = ''.join([str(round((bvar / 1024**3), 2)), ' GB'])
+    elif bvar / 1024**2 >= 1:
+        ret = ''.join([str(round((bvar / 1024**2), 2)), ' MB'])
+    elif bvar / 1024 >= 1:
+        ret = ''.join([str(round((bvar / 1024), 2)), ' KB'])
+    else:
+        ret = ''.join([str(bvar), ' B'])
+
+    return ret
+
+def flatten_sublists(ls):
+    retls = []
+
+    for obj in ls:
+        if not isinstance(obj, list):
+            retls.append(obj)
+        else:
+            retls.extend(flatten_sublists(obj))
+
+    return retls
