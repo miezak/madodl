@@ -10,6 +10,7 @@ from html.parser import HTMLParser
 
 import madodl.out   as _out
 import madodl.gvars as _g
+import madodl.util  as _util
 from madodl.exceptions import *
 
 class ParseCommon:
@@ -204,7 +205,7 @@ class ParseFile(ParseCommon):
         self.seenchp = False
         self.seenvol = False
         self.other   = None
-        wildnums     = []
+        wild_nums    = []
 
         while self._idx < len(self._alltoks):
             t = self.cur_tok_typ()
@@ -333,7 +334,7 @@ class ParseFile(ParseCommon):
                         self._idx += 1
                         continue
 
-                    wildnums.append(self._alltoks[nidx])
+                    wild_nums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'RNG':
                     self.eat_delim()
 
@@ -354,11 +355,11 @@ class ParseFile(ParseCommon):
                     if self.cur_tok_val() % 1:
                         tmprng.append(float(self.cur_tok_val()))
 
-                    wildnums.append(self._alltoks[nidx])
+                    wild_nums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'DAT':
-                    self.regex_mismatch('DAT', 'NUM')
+                    self.regex_mismatch('DAT', 'NUM', nidx)
                 else:
-                    wildnums.append(self._alltoks[nidx])
+                    wild_nums.append(self._alltoks[nidx])
             elif t in {'PLT', 'PRE', 'PRL', 'ART'}:
                 # shouldn't have vol/chp
                 if self._vols or self._chps:
@@ -413,42 +414,39 @@ class ParseFile(ParseCommon):
 
             self._idx += 1
 
-        if wildnums:
+        if wild_nums:
             # These are numbers that did not have
             # a prefix, so we do our best to guess.
-            wnls    = [n['val'] for n in wildnums]
-            wnsubls = []
+            #
+            # XXX this logic disregards token positions, which could (will)
+            #     be problematic as we currently naively assume all the wild
+            #     numbers are related to each other.
 
-            for n in wnls:
-                if isinstance(n, list):
-                    wnls.extend(n)
-                    wnsubls.append(n)
+            wn_ls = _util.flatten_sublists([n['val'] for n in wild_nums])
 
-            if wnsubls:
-                for l in wnsubls: wnls.remove(l)
-
-            del wnsubls
-
-            if len(wildnums[0]['raw']) >= 3:
-                dot = wildnums[0]['raw'].find('.')
-
-                if -1 < dot < 2:
-                    pass
-                else:
-                    self._chps.extend(sorted(wnls))
-            elif not self._vols and not self._chps:
-                if not max(wnls) % 100:
-                    # assuming chp
-                    self._chps.extend(sorted(wnls))
+            #if len(wild_nums[0]['raw']) > 2:
+            #    dot = wild_nums[0]['raw'].find('.')
+            #
+            #    if dot == -1: # no decimal
+            #        pass
+            #    else:
+            #        self._chps.extend(sorted(wn_ls))
+            if not (self._vols and self._chps):
+                if max(wn_ls) >= 100:
+                    # assuming chp due to unlikely case that
+                    # there are 100+ vols
+                    self._chps.extend(sorted(wn_ls))
                 else:
                     # assuming vol
-                    self._vols.extend(sorted(wnls))
+                    self._vols.extend(sorted(wn_ls))
             elif not self._vols:
                 # assuming vol
-                self._vols.extend(sorted(wnls))
+                self._vols.extend(sorted(wn_ls))
             elif not self._chps:
                 # assuming chp
-                self._chps.extend(sorted(wnls))
+                self._chps.extend(sorted(wn_ls))
+            # TODO
+            # handle omake numbers
 
         self._title = self._title.strip()
 

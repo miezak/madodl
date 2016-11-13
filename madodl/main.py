@@ -798,7 +798,7 @@ def get_listing(manga):
             _g.conf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
                                             loc['MLOC'], d1, d2, d3, title)
 
-            _g.log.info('\n-----\n{}-----'.format(mdir))
+            _g.log.info('\n-----\n{}-----\n'.format(mdir))
 
             path = '/'.join((path, title))
 
