@@ -1,3 +1,7 @@
+## [v0.2.3] - 2016-11-13
+### Fixed
+* Bug in `parsers.py` that caused a regex-mismatch error in wild number handling logic.
+
 ## [v0.2.2] - 2016-11-10
 ### Fixed
 * Updated domain to `.al`
@@ -108,6 +112,7 @@ function.
 ## v0.1.0a0 - 2016-02-20
 Initial alpha release.
 
+[v0.2.3]: https://github.com/miezak/madodl/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/miezak/madodl/compare/v0.2.1...v0.2.2
 [v0.2.1]: https://github.com/miezak/madodl/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/miezak/madodl/compare/v0.1.1...v0.2.0

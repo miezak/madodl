@@ -356,7 +356,7 @@ class ParseFile(ParseCommon):
 
                     wildnums.append(self._alltoks[nidx])
                 elif self.cur_tok_typ() == 'DAT':
-                    self.regex_mismatch('DAT', 'NUM')
+                    self.regex_mismatch('DAT', 'NUM', nidx)
                 else:
                     wildnums.append(self._alltoks[nidx])
             elif t in {'PLT', 'PRE', 'PRL', 'ART'}:
