@@ -617,20 +617,6 @@ def init_config():
                         [[name],kv[name].split()])))
                         self._for.append({name : r})
 
-    def set_simple_opt(yh, opt, vals, default):
-        if opt in yh:
-            if not yh[opt]:
-               setattr(_g.conf, '_{}'.format(opt), default)
-            elif default is None and not vals:
-                setattr(_g.conf, '_{}'.format(opt), yh[opt])
-            elif yh[opt] in vals:
-                setattr(_g.conf, '_{}'.format(opt), yh[opt])
-            else:
-                _g.log.error('bad config value for {}'.format(opt))
-                setattr(_g.conf, '_{}'.format(opt), default)
-        else:
-            setattr(_g.conf, '_{}'.format(opt), default)
-
     _g.conf._home = h = os.path.expanduser('~')
 
     if os.name == 'posix':
@@ -651,6 +637,9 @@ def init_config():
         _g.log.warning('madodl doesn`t current support a config file on your '
                        'OS. Using defaults.')
 
+    # NOTE: placed cautiously.
+    DEFAULT_OPTVAL_CACHEFILE = DEFAULT_OPTVAL_CACHEFILE(h)
+
     if not c:
         # XXX check back
         # FIXME: these should be None!
@@ -663,6 +652,31 @@ def init_config():
         _g.conf._cachefile         = DEFAULT_OPTVAL_CACHEFILE
         _g.conf._confirm_selection = DEFAULT_OPTVAL_CONFIRM_SELECTION
         return
+
+    # NOTE: placed cautiously.
+    #
+    #       Apparently Python keyword-defaults bind at time of func definition
+    #       rather than at each call; thus we must have all our constants set
+    #       before this definition. A possible solution would be to simply call
+    #       the func with l=locals() passed manually as-needed to get a fresh
+    #       dict of variables, but this way seems cleaner and less likely to
+    #       accumulate bugs.
+    def set_simple_opt(yh, opt, l=locals()):
+        vals    = l['VALID_OPTVAL_'   + opt.upper()]
+        default = l['DEFAULT_OPTVAL_' + opt.upper()]
+
+        if opt in yh:
+            if not yh[opt]:
+               setattr(_g.conf, '_{}'.format(opt), default)
+            elif default is None and not vals:
+                setattr(_g.conf, '_{}'.format(opt), yh[opt])
+            elif yh[opt] in vals:
+                setattr(_g.conf, '_{}'.format(opt), yh[opt])
+            else:
+                _g.log.error('bad config value for {}'.format(opt))
+                setattr(_g.conf, '_{}'.format(opt), default)
+        else:
+            setattr(_g.conf, '_{}'.format(opt), default)
 
     with open(c) as cf:
         try:
@@ -679,14 +693,11 @@ def init_config():
 
             _g.conf._alltags = alltags
 
-            set_simple_opt(yh, 'no_output', VALID_OPTVAL_NO_OUTPUT,
-                           DEFAULT_OPTVAL_NO_OUTPUT)
-            set_simple_opt(yh, 'logfile', VALID_OPTVAL_LOGFILE,
-                           DEFAULT_OPTVAL_LOGFILE)
+            set_simple_opt(yh, 'no_output')
+            set_simple_opt(yh, 'logfile')
 
             if _g.conf._logfile:
-                set_simple_opt(yh, 'loglevel', VALID_OPTVAL_LOGLEVEL,
-                               DEFAULT_OPTVAL_LOGLEVEL)
+                set_simple_opt(yh, 'loglevel')
 
                 if _g.conf._loglevel in {'debug', 'all'}:
                     loglvl = logging.DEBUG
@@ -702,26 +713,17 @@ def init_config():
             else:
                 _g.conf._loglevel = None
 
-            set_simple_opt(yh, 'confirm_selection',
-                           VALID_OPTVAL_CONFIRM_SELECTION,
-                           DEFAULT_OPTVAL_CONFIRM_SELECTION)
-
-            set_simple_opt(yh, 'usecache', VALID_OPTVAL_USECACHE,
-                           DEFAULT_OPTVAL_USECACHE)
-
+            set_simple_opt(yh, 'confirm_selection')
+            set_simple_opt(yh, 'usecache')
             if _g.conf._usecache:
-                set_simple_opt(yh, 'cachefile', VALID_OPTVAL_CACHEFILE,
-                               DEFAULT_OPTVAL_CACHEFILE(h))
+                set_simple_opt(yh, 'cachefile')
             else:
-                _g.conf._cachefile = DEFAULT_OPTVAL_CACHEFILE
+                _g.conf._cachefile = None
 
-            set_simple_opt(yh, 'default_outdir', VALID_OPTVAL_DEFAULT_OUTDIR,
-                           DEFAULT_OPTVAL_DEFAULT_OUTDIR)
-            set_simple_opt(yh, 'user', VALID_OPTVAL_USER, DEFAULT_OPTVAL_USER)
-
+            set_simple_opt(yh, 'default_outdir')
+            set_simple_opt(yh, 'user')
             if _g.conf._user:
-                set_simple_opt(yh, 'pass', VALID_OPTVAL_USER,
-                               DEFAULT_OPTVAL_PASS)
+                set_simple_opt(yh, 'pass')
             else:
                 _g.conf._pass = DEFAULT_OPTVAL_PASS
         except yaml.YAMLError as yerr:
