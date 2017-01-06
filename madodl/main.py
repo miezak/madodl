@@ -511,42 +511,45 @@ def init_config():
     c          = None
     alltags    = []
     VALID_OPTS = {
-        'tags'      ,
-        'no_output' ,
-        'logfile'   ,
-        'loglevel'  ,
-        'usecache'  ,
-        'cachefile' ,
-        'user'      ,
-        'pass'      ,
+        'tags'              ,
+        'no_output'         ,
+        'confirm_selection' ,
+        'logfile'           ,
+        'loglevel'          ,
+        'usecache'          ,
+        'cachefile'         ,
+        'user'              ,
+        'pass'              ,
     }
     # for valid option values
     # None = an option whose validity cannot be ascertained
     binopt = {True, False}
 
-    VALID_OPTVAL_NO_OUTPUT = binopt
-    VALID_OPTVAL_LOGFILE   = None
-    VALID_OPTVAL_LOGLEVEL  = {
+    VALID_OPTVAL_CONFIRM_SELECTION = binopt
+    VALID_OPTVAL_NO_OUTPUT         = binopt
+    VALID_OPTVAL_LOGFILE           = None
+    VALID_OPTVAL_LOGLEVEL          = {
         'verbose' ,
         'debug'   ,
         'all'     ,
     }
-    VALID_OPTVAL_USECACHE       = binopt
-    VALID_OPTVAL_CACHEFILE      = None
-    VALID_OPTVAL_DEFAULT_OUTDIR = None
-    VALID_OPTVAL_USER           = None
-    VALID_OPTVAL_PASS           = None
+    VALID_OPTVAL_USECACHE          = binopt
+    VALID_OPTVAL_CACHEFILE         = None
+    VALID_OPTVAL_DEFAULT_OUTDIR    = None
+    VALID_OPTVAL_USER              = None
+    VALID_OPTVAL_PASS              = None
 
-    DEFAULT_OPTVAL_NO_OUTPUT      = False
-    DEFAULT_OPTVAL_LOGFILE        = None
-    DEFAULT_OPTVAL_LOGLEVEL       = 'verbose'
-    DEFAULT_OPTVAL_USECACHE       = False
+    DEFAULT_OPTVAL_CONFIRM_SELECTION = False
+    DEFAULT_OPTVAL_NO_OUTPUT         = False
+    DEFAULT_OPTVAL_LOGFILE           = None
+    DEFAULT_OPTVAL_LOGLEVEL          = 'verbose'
+    DEFAULT_OPTVAL_USECACHE          = False
     # set after we get local $HOME
-    DEFAULT_OPTVAL_CACHEFILE      = lambda h: os.path.join(h, '.cache',
-                                                      'madodl', 'files.json')
-    DEFAULT_OPTVAL_DEFAULT_OUTDIR = os.getcwd()
-    DEFAULT_OPTVAL_USER           = None
-    DEFAULT_OPTVAL_PASS           = None
+    DEFAULT_OPTVAL_CACHEFILE         = lambda h: os.path.join(h, '.cache',
+                                                         'madodl', 'files.json')
+    DEFAULT_OPTVAL_DEFAULT_OUTDIR    = os.getcwd()
+    DEFAULT_OPTVAL_USER              = None
+    DEFAULT_OPTVAL_PASS              = None
 
     class TagFilter:
         VALID_CASE = {
@@ -651,13 +654,14 @@ def init_config():
     if not c:
         # XXX check back
         # FIXME: these should be None!
-        _g.conf._user           = ''
-        _g.conf._pass           = ''
-        _g.conf._alltags        = ''
-        _g.conf._default_outdir = DEFAULT_OPTVAL_DEFAULT_OUTDIR
-        _g.conf._no_output      = DEFAULT_OPTVAL_NO_OUTPUT
-        _g.conf._usecache       = DEFAULT_OPTVAL_USECACHE
-        _g.conf._cachefile      = DEFAULT_OPTVAL_CACHEFILE
+        _g.conf._user              = ''
+        _g.conf._pass              = ''
+        _g.conf._alltags           = ''
+        _g.conf._default_outdir    = DEFAULT_OPTVAL_DEFAULT_OUTDIR
+        _g.conf._no_output         = DEFAULT_OPTVAL_NO_OUTPUT
+        _g.conf._usecache          = DEFAULT_OPTVAL_USECACHE
+        _g.conf._cachefile         = DEFAULT_OPTVAL_CACHEFILE
+        _g.conf._confirm_selection = DEFAULT_OPTVAL_CONFIRM_SELECTION
         return
 
     with open(c) as cf:
@@ -689,7 +693,7 @@ def init_config():
                 else:
                     loglvl = logging.INFO
 
-                # by default, log files will rotate at 10MB with one bk file.
+                # by default, log files will rotate at 10MB with one bkup file.
                 logfile_hdlr = logging.handlers.RotatingFileHandler(
                     _g.conf._logfile, maxBytes=10e6, backupCount=1)
                 logfile_hdlr.setLevel(loglvl)
@@ -697,6 +701,10 @@ def init_config():
                 _g.log.addHandler(logfile_hdlr)
             else:
                 _g.conf._loglevel = None
+
+            set_simple_opt(yh, 'confirm_selection',
+                           VALID_OPTVAL_CONFIRM_SELECTION,
+                           DEFAULT_OPTVAL_CONFIRM_SELECTION)
 
             set_simple_opt(yh, 'usecache', VALID_OPTVAL_USECACHE,
                            DEFAULT_OPTVAL_USECACHE)
@@ -772,9 +780,9 @@ def get_listing(manga):
 
         assert os.path.exists(jsonloc)
 
-        path = _util.create_nwo_path(manga)
+        path     = _util.create_nwo_path(manga)
         d1,d2,d3 = path.split('/')
-        mdir = None
+        mdir     = None
 
         with breaks(open(jsonloc, errors='surrogateescape')) as f:
             jobj = json.load(f)
@@ -836,16 +844,32 @@ def get_listing(manga):
             try:
                 ch = int(input('choice > '))
                 if ch in range(1, i):
+                    if _g.conf._confirm_selection:
+                        sel_no = False
+
+                        while 1:
+                            confirm = input('Download `{}`? [yn] > '
+                                              .format(os.path.basename(
+                                                qp.mresults[ch-1][1])))
+                            if confirm.lower() in {'y', 'yes'}:
+                                break
+                            elif confirm.lower() in {'n', 'no'}:
+                                sel_no = True
+                                break
+                        if sel_no:
+                            continue
+
                     break
                 print('Pick a number between 1 and {}'.format(i-1))
             except ValueError:
                 print('Invalid input.')
 
-        m = qp.mresults[ch-1][0]
+        m     = qp.mresults[ch-1][0]
         title = os.path.basename(qp.mresults[ch-1][1])
     else:
-        m = qp.mresults[0][0]
+        m     = qp.mresults[0][0]
         title = os.path.basename(qp.mresults[0][1])
+
         _out._('one match found: {}'.format(title))
 
     dirls = search_exact(m, True).getvalue().decode()
@@ -886,7 +910,7 @@ def rem_subdir_recurse(listing, path, depth=1):
         _out.die('reached max recursion depth')
 
     for idx in range(len(listing)):
-        # madokami's FTP LIST format is long ls, [{}/ are meta tokens]:
+        # madokami's FTP LIST format is long ls, [{}/, are meta tokens]:
         # {d,-}rwxrwxrwx 1 u g sz mon day y/time fname
         #  |                                     |
         #  |=> directory or regular file         |=> filename
@@ -950,7 +974,7 @@ def main_loop(manga_list):
 
             if any((compfile, compc, compv)):
                 # XXX sigh...
-                # need to append MLOC when we get a cache match.
+                # need to append MLOC when we get a cache hit.
                 ppfx = ''.join(['https://', loc['DOMAIN']])
 
                 if _g.conf._found_in_cache:
@@ -966,7 +990,7 @@ def main_loop(manga_list):
                         _g.conf._stdscr.erase()
                         _g.conf._stdscr.addstr(0, 0, compfile.name)
                         _g.conf._stdscr.refresh()
-                        _curl.curl_to_file('/'.join([ppfx, 
+                        _curl.curl_to_file('/'.join([ppfx,
                                                      _util.create_nwo_basename(
                                                         compfile.basename),
                                                      urllib

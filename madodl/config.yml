@@ -39,6 +39,9 @@ tags:
 # DEFAULT -> false
 no_output : false
 
+# prompt user to confirm selected manga is the intended choice
+confirm_selection : false
+
 # where to save logging messages
 # DEFAULT -> None
 logfile : ''
