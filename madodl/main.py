@@ -98,26 +98,33 @@ def search_query(name=''):
                                                      loc['SEARCH'], name),
                              'HTTP')
 
+#
+# filter files according to tag rules.
+#
+# NOTE: if a tag is defined multiple times, the first definition is used.
+#
+# Returns True if we keep this file and False if we filter it out.
+#
 def apply_tag_filters(f, title):
     f._preftag  = False
     f._npreftag = False
 
-    if not f._tag or not _g.conf._alltags:
+    if not any((f._tag, _g.conf._alltags)):
         return True
 
-    taglow = [t.lower() for t in f._tag]
+    taglow   = [t.lower() for t in f._tag]
     titlelow = title.lower()
 
     for t in _g.conf._alltags:
         _g.log.info('apply_tag_filters(): {} {} {} {}'.format(t._name,
-                                                        t._filter, t._case,
-                                                        taglow))
-        _g.log.info('apply_tag_filters(): {}'.format(t._name.lower() in
-                                                        taglow))
+                                                              t._filter,
+                                                              t._case, taglow))
+        _g.log.info('apply_tag_filters(): {}'.format(t._name.lower() in taglow))
+
         if t._name.lower() in taglow:
             if ((t._case == 'exact' and t._name not in f._tag) or
                 (t._case == 'upper' and t._name not in
-                                       [t.upper() for t in f._tag])):
+                                        [t.upper() for t in f._tag])):
                 return True
 
             curtag = t._name.lower()
@@ -137,11 +144,15 @@ def apply_tag_filters(f, title):
                     return True
 
                 if mreq != 'all':
-                    if (_util.common_elem(f._vols, mreq._vols) or
-                        _util.common_elem(f._chps, mreq._chps)):
-                        pass
-                    else:
+                    if not (_util.common_elem(f._vols, mreq._vols) or
+                            _util.common_elem(f._chps, mreq._chps)):
                         return True
+
+            if t._ext != 'any' and f._ext not in t._ext:
+                # extension match required, but not found
+                if t._filter == 'only':
+                    return False
+                return True
 
             if t._filter == 'out':
                 del f
@@ -152,21 +163,40 @@ def apply_tag_filters(f, title):
                 f._npreftag = True
         else:
             if t._filter == 'only':
+                # check if in `for` specifications
+                if t._for != 'all':
+                    for d in t._for:
+                        for ft in d.keys():
+                            if ft.lower() == titlelow:
+                                mreq = d[titlelow]
+                                break # first come, first serve
+                        else:
+                            continue
+                        break # need this too
+                    else:
+                        return True
+
+                    if mreq != 'all':
+                        if not (_util.common_elem(f._vols, mreq._vols) or
+                                _util.common_elem(f._chps, mreq._chps)):
+                            return True
+
+                # we wanted only a specific tag, but couldn't find it
                 del f
                 return False
 
     return True
 
-def check_preftags(vc, vcq, fo, allf, npref, v_or_c):
+def check_pref_tags(vc, vcq, fo, allf, npref, v_or_c):
     # v_or_c: True -> vol, False -> chp
     if v_or_c:
         ftupidx = 1
-        what = 'vol'
-        whatls = fo._vols
+        what    = 'vol'
+        whatls  = fo._vols
     else:
         ftupidx = 2
-        what = 'chp'
-        whatls = fo._chps
+        what    = 'chp'
+        whatls  = fo._chps
 
     if fo._preftag:
             for ftup in allf:
@@ -219,13 +249,13 @@ def walk_thru_listing(req, title, dir_ls):
 
     if req._vols and req._vols[-1] == req.ALL:
         oerng_v = True
-        oest_v = req._vols[-2]
+        oest_v  = req._vols[-2]
     else:
         oerng_v = False
 
     if req._chps and req._chps[-1] == req.ALL:
         oerng_c = True
-        oest_c = req._chps[-2]
+        oest_c  = req._chps[-2]
     else:
         oerng_c = False
 
@@ -238,7 +268,7 @@ def walk_thru_listing(req, title, dir_ls):
         fo = _parsers.ParseFile(f.name, title)
 
         if not apply_tag_filters(fo, title):
-            _g.log.info('** filtered out {}'.format(fo._f))
+            _g.log.info('!** filtered out tag {} **!'.format(fo._f))
             continue
 
         vq   = []
@@ -261,7 +291,7 @@ def walk_thru_listing(req, title, dir_ls):
                 if c not in cq and c not in compc:
                     cq.append(c)
                 else:
-                    act = check_preftags(fov, vq, fo, allf, npref, True)
+                    act = check_pref_tags(fov, vq, fo, allf, npref, True)
                     if isinstance(act, str):
                         if fo._preftag:
                             continue
@@ -290,7 +320,8 @@ def walk_thru_listing(req, title, dir_ls):
                         if compc and foc not in compc: # with all new chps
                             continue # is new
                         else:
-                            act = check_preftags(fov, vq, fo, allf, npref, True)
+                            act = check_pref_tags(fov, vq, fo, allf, npref,
+                                                  True)
                             if isinstance(act, str):
                                 if fo._preftag:
                                     apnd = True
@@ -313,7 +344,7 @@ def walk_thru_listing(req, title, dir_ls):
         # XXX the chapter logic is really hackish and probably
         # needs to be completely rewritten.
         if (len(req._chps) > 1 and len(fo._chps) == len(req._chps)
-           and req._chps[0] == fo._chps[0]):
+            and req._chps[0] == fo._chps[0]):
             rmax  = None
             fomax = None
             last  = req._chps[0]
@@ -341,7 +372,7 @@ def walk_thru_listing(req, title, dir_ls):
                                                     flat=False)
 
                 for cclash in iter_celems:
-                    check_preftags(cclash, cq, fo, allf, npref, False)
+                    check_pref_tags(cclash, cq, fo, allf, npref, False)
 
                 for i in req._chps:
                     if i <= rmax:
@@ -353,7 +384,7 @@ def walk_thru_listing(req, title, dir_ls):
             if oerng_c and fo._chps and min(fo._chps) >= oest_c:
                 for c in fo._chps:
                     if c in set(chain(cq, compc)): # in queue, check preftags
-                        act = check_preftags(c, cq, fo, allf, npref, False)
+                        act = check_pref_tags(c, cq, fo, allf, npref, False)
                         if act == 'break'   : break
                         if act == 'continue': continue
                         break
@@ -370,7 +401,7 @@ def walk_thru_listing(req, title, dir_ls):
                         if c not in set(chain(cq, compc)):
                             cq.append(c)
                         else: # in queue, check preftags
-                            act = check_preftags(c, cq, fo, allf, npref, False)
+                            act = check_pref_tags(c, cq, fo, allf, npref, False)
 
                             if act == 'break'   : break
                             if act == 'continue':
@@ -566,6 +597,7 @@ def init_config():
         }
 
         DEFAULT_CASE   = 'any'
+        DEFAULT_EXT    = 'any'
         DEFAULT_FILTER = 'prefer'
         DEFAULT_FOR    = 'all'
 
@@ -580,41 +612,53 @@ def init_config():
             self._name = self._tag['name']
 
             if default:
-                self._case = self.DEFAULT_CASE
+                self._case   = self.DEFAULT_CASE
+                self._ext    = self.DEFAULT_EXT
                 self._filter = self.DEFAULT_FILTER
-                self._for = self.DEFAULT_FOR
+                self._for    = self.DEFAULT_FOR
                 return
 
             if 'case' not in self._tag:
                 self._case = self.DEFAULT_CASE
             else:
                 self._case = self._tag['case']
+                # check if value is ok.
+                if self._case not in self.VALID_CASE:
+                    _g.log.error('bad `case` value for {}'.format(self._name))
+                    self._case = self.DEFAULT_CASE
+
+            if 'ext' not in self._tag or self._tag['ext'] == 'any':
+                self._ext = self.DEFAULT_EXT
+            else:
+                if type(self._tag['ext']) != list:
+                    _g.log.error('`ext` value not in list format for {}'
+                                   .format(self._name))
+                # ensure we get all strings here.
+                self._ext = [str(e) for e in self._tag['ext']]
 
             if 'filter' not in self._tag:
                 self._filter = self.DEFAULT_FILTER
             else:
                 self._filter = self._tag['filter']
+                # check if value is ok.
+                if self._filter not in self.VALID_FILTER:
+                    _g.log.error('bad `filter` value for {}'.format(self._name))
+                    self._filter = self.DEFAULT_FILTER
 
             if 'for' not in self._tag:
                 self._for = self.DEFAULT_FOR
 
-            if self._case not in self.VALID_CASE:
-                _g.log.error('bad case value for {}'.format(self._tag['name']))
-                self._case = self.DEFAULT_CASE
-
-            if self._filter not in self.VALID_FILTER:
-                _g.log.error('bad filter value for {}'
-                               .format(self._tag['name']))
-                self._filter = self.DEFAULT_FILTER
-
             if self._for == 'all' or self._tag['for'] in ('all',['all']):
                 return
             else:
+                if type(self._tag['for']) != list:
+                    _g.log.error('`for` value not in list format for {}'
+                                   .format(self._name))
+                # XXX this is a mess.
                 for kv in self._tag['for']:
                     for name in kv:
-                        r = _parsers.ParseRequest(list(
-                        chain.from_iterable(
-                        [[name],kv[name].split()])))
+                        r = _parsers.ParseRequest(list(chain.from_iterable(
+                                                  [[name],kv[name].split()])))
                         self._for.append({name : r})
 
     _g.conf._home = h = os.path.expanduser('~')
@@ -1033,12 +1077,13 @@ def main_loop(manga_list):
 
 #
 # TODO:
-# - extension filters
+# - global extension filters
 # - allow greedy v/c matching
 # - add -p switch
 # - allow non-manga DL's
 # - msg output w/ unicurses
 # - allow for pausing and skipping during DL
+# - allow regex in config.yml
 #
 def main():
     try:

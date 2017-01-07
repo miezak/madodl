@@ -14,6 +14,9 @@
 #            any   -> any casing
 #            exact -> exactly as the casing is in the name field
 #         DEFAULT -> any
+# ext .. list of file type specifiers
+#  values .. [ext1, ..., ext_n]
+#  		  DEFAULT -> any
 # filter .. how to filter this tag when downloading manga
 #  values .. only   -> only download manga matching this tag
 #            out    -> only download manga _NOT_ matching this tag
@@ -21,7 +24,7 @@
 #            not prefer -> prefer other tags over this one
 #         DEFAULT -> prefer
 # for .. list of manga this rule applies to
-#  value .. name [volume/chapter list]
+#  value .. [name1 : [vol/chp list], ..., name_n : [vol/chp list]]
 #        DEFAULT -> all
 tags:
 # - name: HorribleScans
