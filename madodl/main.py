@@ -16,6 +16,8 @@ import logging
 import logging.handlers
 import pkg_resources
 import json
+import signal
+import threading
 
 def local_import():
     global _curl, _parsers, _util, _out
@@ -66,6 +68,32 @@ _g.loc = loc
 # emulate struct
 class Struct:
     pass
+
+thr_lock = threading.Condition()
+class KeypollThr(threading.Thread):
+    def run(self):
+        while 1:
+            ch = _g.conf._stdscr.getch()
+            if ch == ord(' '):
+                thr_lock.acquire()
+                os.kill(os.getpid(), signal.SIGABRT)
+                thr_lock.wait()
+
+def keypoll_hdlr(_, __):
+    thr_lock.acquire()
+    _g.conf._stdscr.addstr(2, 0, ' '*_g.conf._COLS)
+    _g.conf._stdscr.refresh()
+    _g.conf._stdscr.addstr(2, 0,
+        '(paused) size {} | downloaded {}'.format(_g.conf._fsz,
+                                                  _g.conf._tdl_conv))
+    _g.conf._stdscr.refresh()
+
+    while 1:
+        ch = _g.conf._stdscr.getch()
+        if ch == ord(' '):
+            thr_lock.notify()
+            thr_lock.release()
+            return
 
 #
 # returns an FTP LISTing
@@ -1030,6 +1058,12 @@ def main_loop(manga_list):
                     stdscr          = unicurses.initscr()
                     _g.conf._stdscr = stdscr
                     unicurses.noecho()
+                    unicurses.cbreak()
+
+                    # setup keypolling for pause/resume functionality
+                    keypoll_thr = KeypollThr(daemon=True)
+                    keypoll_thr.start()
+                    signal.signal(signal.SIGABRT, keypoll_hdlr)
 
                     if compfile:
                         _out._('downloading complete archive... ', end='')
@@ -1045,7 +1079,7 @@ def main_loop(manga_list):
                                            compfile.name, 'HTTP')
                     elif compv or compc:
                         _out._('downloading volume/chapters... ', end='')
-                        for f,v,c in allf:
+                        for f, _, __ in allf:
                             #_g.log.info('DL ' + f)
                             _g.conf._stdscr.erase()
                             _g.conf._stdscr.addstr(0, 0, 'title - {}'
@@ -1082,7 +1116,7 @@ def main_loop(manga_list):
 # - add -p switch
 # - allow non-manga DL's
 # - msg output w/ unicurses
-# - allow for pausing and skipping during DL
+# - allow skipping during DL
 # - allow regex in config.yml
 #
 def main():
