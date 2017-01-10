@@ -8,8 +8,8 @@
 #
 
 import os, sys
-from io        import BytesIO
-from itertools import chain
+from   io        import BytesIO
+from   itertools import chain
 import urllib.parse
 import argparse
 import logging
@@ -28,7 +28,7 @@ def local_import():
     import madodl.out     as _out
 
 import madodl.gvars as _g
-from madodl.exceptions import *
+from   madodl.exceptions import *
 
 if sys.hexversion < 0x30400f0:
     sys.stderr.write('madodl requires Python 3.4 or newer.\n')
@@ -229,15 +229,15 @@ def check_pref_tags(vc, vcq, fo, allf, npref, v_or_c):
     if fo._preftag:
             for ftup in allf:
                 if vc in ftup[ftupidx]:
-                    _g.log.info('replacing {} with preferred'
-                             ' tag {}'.format(ftup[0], fo._f))
+                    _g.log.info('replacing {} with preferred '
+                                'tag {}'.format(ftup[0], fo._f))
                     allf.remove(ftup)
                     vcq.extend(whatls)
                     return 'break'
             else:
                 _out.die("BUG: couldn't find any dup {} in {} "
-                    "when replacing with pref tag".format(what, whatls),
-                    lvl='critical')
+                         "when replacing with pref tag".format(what, whatls),
+                         lvl='critical')
     elif not fo._npreftag and npref:
         for t in npref:
             if vc in t[ftupidx]:
@@ -247,8 +247,7 @@ def check_pref_tags(vc, vcq, fo, allf, npref, v_or_c):
             _g.log.warning('dup vol and chps seen')
             return 'break'
 
-        _g.log.info('replacing nonpreferred {} '
-                 'with {}'.format(tup[0], fo._f))
+        _g.log.info('replacing nonpreferred {} with {}'.format(tup[0], fo._f))
         allf.remove(tup)
         npref.remove(tup)
         return 'continue'
@@ -1127,10 +1126,7 @@ def main():
         local_import()
         init_config()
 
-        if args.outdir:
-            _g.conf._outdir = args.outdir
-        else:
-            _g.conf._outdir = _g.conf._default_outdir
+        _g.conf._outdir = args.outdir or _g.conf._default_outdir
 
         if args.auth:
             up = args.auth.split(':', 1)

@@ -6,12 +6,12 @@
 
 import re
 import logging
-from html.parser import HTMLParser
+from   html.parser import HTMLParser
 
 import madodl.out   as _out
 import madodl.gvars as _g
 import madodl.util  as _util
-from madodl.exceptions import *
+from   madodl.exceptions import *
 
 class ParseCommon:
     ''' ADDME '''
@@ -28,10 +28,10 @@ class ParseCommon:
     def push_to_last(self, uval=-1):
         val = self.cur_tok_val() if uval < 0 else uval
 
-        if self.last:
+        if self.last: # last is vol
             _g.log.debug(self.last)
             self._vols.append(val)
-        else:
+        else: # last is chp
             _g.log.debug(self.last)
             self._chps.append(val)
 
@@ -516,7 +516,6 @@ class ParseRequest(ParseCommon):
                 raise RequestError('no number specified for {}'.format(what))
 
             self.last = True if what == 'VOL' else False
-            tokcpy    = self._toks[:]
             self._idx = idx = 1
 
             while idx < len(self._toks)+1:

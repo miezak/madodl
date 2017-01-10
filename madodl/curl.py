@@ -5,7 +5,7 @@
 #
 
 import os
-from io import BytesIO
+from   io import BytesIO
 import re
 import urllib.parse
 import time
@@ -14,7 +14,7 @@ import unicurses
 
 import madodl.util  as _util
 import madodl.gvars as _g
-from madodl.exceptions import *
+from   madodl.exceptions import *
 
 hdrs = {}
 def curl_hdr(hdr_line):

@@ -6,7 +6,7 @@
 
 import re
 import urllib.parse
-from itertools import chain
+from   itertools import chain
 
 import madodl.out as _out
 
