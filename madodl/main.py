@@ -113,9 +113,9 @@ def search_exact(name='', have_path=False):
     c.setopt(c.USERPWD, '{}:{}'.format(loc['USER'], loc['PASS']))
     c.setopt(c.PORT, loc['FTPPORT'])
 
-    ml = loc['MLOC'] if not have_path else ''
+    mloc = loc['MLOC'] if not have_path else ''
 
-    path_noscheme = '{}{}{}/{}/'.format(loc['DOMAIN'], ml, path, name)
+    path_noscheme = '{}{}{}/{}/'.format(loc['DOMAIN'], mloc, path, name)
 
     _g.log.info('ftp://' + path_noscheme)
 
@@ -727,12 +727,12 @@ def init_config():
 
     # NOTE: placed cautiously.
     #
-    #       Apparently Python keyword-defaults bind at time of func definition
-    #       rather than at each call; thus we must have all our constants set
-    #       before this definition. A possible solution would be to simply call
-    #       the func with l=locals() passed manually as-needed to get a fresh
-    #       dict of variables, but this way seems cleaner and less likely to
-    #       accumulate bugs.
+    # Apparently Python keyword-defaults bind at time of func definition
+    # rather than at each call; thus we must have all our constants set
+    # before this definition. A possible solution would be to simply call
+    # the func with l=locals() passed manually as-needed to get a fresh
+    # dict of variables, but this way seems cleaner and less likely to
+    # accumulate bugs.
     def set_simple_opt(yh, opt, l=locals()):
         vals    = l['VALID_OPTVAL_'   + opt.upper()]
         default = l['DEFAULT_OPTVAL_' + opt.upper()]

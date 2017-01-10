@@ -19,11 +19,11 @@ class ParseCommon:
     ALL = float((1 << 32)-1)
 
     def __init__(self):
-        self._idx     = 0
-        self._alltoks = []
-        self._all     = False
-        self._vols    = []
-        self._chps    = []
+        self._idx  = 0
+        self._toks = []
+        self._all  = False
+        self._vols = []
+        self._chps = []
 
     def push_to_last(self, uval=-1):
         val = self.cur_tok_val() if uval < 0 else uval
@@ -38,46 +38,46 @@ class ParseCommon:
         return None
 
     def cur_tok_typ(self):
-        if self._idx == len(self._alltoks):
+        if self._idx == len(self._toks):
             return None
 
-        return self._alltoks[self._idx]['typ']
+        return self._toks[self._idx]['typ']
 
     def cur_tok_val(self):
-        if self._idx == len(self._alltoks):
+        if self._idx == len(self._toks):
             return None
 
-        return self._alltoks[self._idx]['val']
+        return self._toks[self._idx]['val']
 
     def set_cur_tok_typ(self, newtyp):
-        if self._idx == len(self._alltoks):
+        if self._idx == len(self._toks):
             return False
 
-        self._alltoks[self._idx]['typ'] = newtyp
+        self._toks[self._idx]['typ'] = newtyp
 
         return True
 
     def set_cur_tok_val(self, newval):
-        if self._idx == len(self._alltoks):
+        if self._idx == len(self._toks):
             return False
 
-        self._alltoks[self._idx]['val'] = newval
+        self._toks[self._idx]['val'] = newval
 
         return True
 
     def get_tok_typ(self, uidx):
-        return self._alltoks[uidx]['typ']
+        return self._toks[uidx]['typ']
 
     def get_tok_val(self, uidx):
-        return self._alltoks[uidx]['val']
+        return self._toks[uidx]['val']
 
     def set_tok_typ(self, uidx, newtyp):
-        self._alltoks[uidx]['typ'] = newtyp
+        self._toks[uidx]['typ'] = newtyp
 
         return True
 
     def set_tok_val(self, uidx, newval):
-        self._alltoks[uidx]['val'] = newval
+        self._toks[uidx]['val'] = newval
 
         return True
 
@@ -87,12 +87,12 @@ class ParseCommon:
 
         _idx_ = self._idx if uidx < 0 else uidx
 
-        self._alltoks[_idx_]['typ'] = goodtyp
+        self._toks[_idx_]['typ'] = goodtyp
 
         # put back original token value so integers in non volume/chapter
         # tokens don't stay in float format.
         if badtyp == 'NUM':
-            self._alltoks[_idx_]['val'] = self._alltoks[_idx_]['raw']
+            self._toks[_idx_]['val'] = self._toks[_idx_]['raw']
 
         return None
 
@@ -100,9 +100,9 @@ class ParseCommon:
         self._idx += 1
         typset = {'DLM',} if norng else {'DLM', 'RNG'}
 
-        while self._idx < len(self._alltoks):
-            if self._alltoks[self._idx]['typ'] in typset:
-                if not norng and self._alltoks[self._idx]['typ'] == 'RNG':
+        while self._idx < len(self._toks):
+            if self._toks[self._idx]['typ'] in typset:
+                if not norng and self._toks[self._idx]['typ'] == 'RNG':
                     self.regex_mismatch('DLM', 'RNG')
                     self._idx += 1
             else:
@@ -188,14 +188,14 @@ class ParseFile(ParseCommon):
         for t in re.finditer(tok_regex, f, flags=re.I):
             typ = t.lastgroup
             val = t.group(typ)
-            self._alltoks.append({'typ' : typ, 'val' : val})
+            self._toks.append({'typ' : typ, 'val' : val})
 
-        if self._alltoks[-1]['typ'] != 'EXT':
+        if self._toks[-1]['typ'] != 'EXT':
             _out.die('Encountered a file without an extension, which is '
                      'not currently supported. Bailing.', lvl='FATAL')
-        self._ext = self._alltoks[-1]['val'][1:]
+        self._ext = self._toks[-1]['val'][1:]
 
-        for t in self._alltoks:
+        for t in self._toks:
             if t['typ'] == 'NUM':
                 t['raw'] = t['val']
                 t['val'] = float(t['val'])
@@ -208,7 +208,7 @@ class ParseFile(ParseCommon):
         self.other   = None
         wild_nums    = []
 
-        while self._idx < len(self._alltoks):
+        while self._idx < len(self._toks):
             t = self.cur_tok_typ()
 
             _g.log.debug('{} {}'.format(self._idx, t))
@@ -216,8 +216,7 @@ class ParseFile(ParseCommon):
             if t == 'VOL':
                 self.last = True
 
-                if not self.seenvol:
-                    self.seenvol = True
+                self.seenvol = self.seenvol or True
 
                 vidx = self._idx
                 self.eat_delim()
@@ -240,7 +239,7 @@ class ParseFile(ParseCommon):
                 if self.cur_tok_typ() == 'RNG':
                     self.eat_delim()
 
-                    if self._idx == len(self._alltoks):
+                    if self._idx == len(self._toks):
                         # open-ended range
                         self._vols.append(vidx)
                         self._vols.append(self.ALL)
@@ -256,9 +255,8 @@ class ParseFile(ParseCommon):
 
                 continue # XXX
             elif t == 'CHP':
-                self.last = False
-                if not self.seenchp:
-                    self.seenchp = True
+                self.last    = False
+                self.seenchp = self.seenchp or True
 
                 cidx = self._idx
                 self.eat_delim()
@@ -281,7 +279,7 @@ class ParseFile(ParseCommon):
                 if self.cur_tok_typ() == 'RNG':
                     self.eat_delim()
 
-                    if self._idx == len(self._alltoks):
+                    if self._idx == len(self._toks):
                         # open-ended range
                         self._vols.append(vidx)
                         self._vols.append(self.ALL)
@@ -335,7 +333,7 @@ class ParseFile(ParseCommon):
                         self._idx += 1
                         continue
 
-                    wild_nums.append(self._alltoks[nidx])
+                    wild_nums.append(self._toks[nidx])
                 elif self.cur_tok_typ() == 'RNG':
                     self.eat_delim()
 
@@ -346,7 +344,7 @@ class ParseFile(ParseCommon):
                         continue
 
                     st = self.get_tok_val(nidx)
-                    self._alltoks[nidx]['val'] = tmprng = []
+                    self._toks[nidx]['val'] = tmprng = []
                     tmprng.append(st)
                     rngb = int(st) + 1
 
@@ -356,11 +354,11 @@ class ParseFile(ParseCommon):
                     if self.cur_tok_val() % 1:
                         tmprng.append(float(self.cur_tok_val()))
 
-                    wild_nums.append(self._alltoks[nidx])
+                    wild_nums.append(self._toks[nidx])
                 elif self.cur_tok_typ() == 'DAT':
                     self.regex_mismatch('DAT', 'NUM', nidx)
                 else:
-                    wild_nums.append(self._alltoks[nidx])
+                    wild_nums.append(self._toks[nidx])
             elif t in {'PLT', 'PRE', 'PRL', 'ART'}:
                 # shouldn't have vol/chp
                 if self._vols or self._chps:
@@ -371,7 +369,7 @@ class ParseFile(ParseCommon):
                 self.other = t
             elif t == 'OMK':
                 # probably should have vol/chp
-                if not self._vols and not self._chps:
+                if not (self._vols and self._chps):
                     _g.log.warning('regex picked up a bonus type without '
                                 'a vol/chp identifier, which may be '
                                 'incorrect. Adding anyway...')
@@ -381,8 +379,8 @@ class ParseFile(ParseCommon):
                 self._all = True
             elif t == 'GRB':
                 if self.get_tok_typ(self._idx+1) not in {'VOL', 'CHP', 'ALL',
-                                              'OMK', 'PLT', 'PRE',
-                                              'PRL', 'ART'}:
+                                                         'OMK', 'PLT', 'PRE',
+                                                         'PRL', 'ART'}:
                     self._idx += 1
 
                     if (self.cur_tok_typ() == 'NUM' and
@@ -390,7 +388,6 @@ class ParseFile(ParseCommon):
                         continue
 
                     tmptag = ''
-
                     while self.cur_tok_typ() not in {'GRE', None}:
                         if self.cur_tok_typ() == 'NUM':
                             self.regex_mismatch('DAT', 'NUM')
@@ -492,7 +489,7 @@ class ParseRequest(ParseCommon):
         tok_regex = '|'.join('(?P<%s>%s)' % p for p in tok_spec)
 
         for vc in req:
-            self._alltoks = []
+            self._toks = []
 
             for t in re.finditer(tok_regex, vc):
                 typ = t.lastgroup
@@ -501,7 +498,7 @@ class ParseRequest(ParseCommon):
                 if typ == 'BAD':
                     raise RequestError('bad char {}'.format(val))
 
-                self._alltoks.append({'typ' : typ, 'val' : val})
+                self._toks.append({'typ' : typ, 'val' : val})
 
             what = self.get_tok_typ(0)
 
@@ -511,18 +508,18 @@ class ParseRequest(ParseCommon):
                 else:
                     _g.log.warning('No vol/ch prefix. Assuming volume.')
                     what = 'VOL'
-                    tmp = [0 for z in range(len(self._alltoks)+1)]
-                    for idx in range(len(self._alltoks)):
-                        tmp[idx+1] = self._alltoks[idx]
-                    self._alltoks = tmp
-            elif len(self._alltoks) == 1 or self.get_tok_typ(1) != 'NUM':
+                    tmp = [0 for z in range(len(self._toks)+1)]
+                    for idx in range(len(self._toks)):
+                        tmp[idx+1] = self._toks[idx]
+                    self._toks = tmp
+            elif len(self._toks) == 1 or self.get_tok_typ(1) != 'NUM':
                 raise RequestError('no number specified for {}'.format(what))
 
             self.last = True if what == 'VOL' else False
-            tokcpy    = self._alltoks[:]
+            tokcpy    = self._toks[:]
             self._idx = idx = 1
 
-            while idx < len(self._alltoks)+1:
+            while idx < len(self._toks)+1:
                 typ = self.cur_tok_typ()
                 val = self.cur_tok_val()
 
@@ -532,7 +529,7 @@ class ParseRequest(ParseCommon):
                     break
 
                 if typ == 'RNG':
-                    if self._idx == len(self._alltoks)-1:
+                    if self._idx == len(self._toks)-1:
                         if self.get_tok_typ(self._idx-1) != 'NUM':
                             raise RequestError('bad range for {}'.format(what))
                         else:
@@ -560,10 +557,10 @@ class ParseRequest(ParseCommon):
 
                     self._idx += 1
                 elif typ == 'COM':
-                    if (self._idx == len(self._alltoks)-1 or
-                        self._alltoks[self._idx+1]['typ'] != 'NUM'):
+                    if (self._idx == len(self._toks)-1 or
+                        self._toks[self._idx+1]['typ'] != 'NUM'):
                         _g.log.warning('Extraneous comma detected. Removing.')
-                        del self._alltoks[self._idx]
+                        del self._toks[self._idx]
                         continue
                     else:
                         self._idx += 1
