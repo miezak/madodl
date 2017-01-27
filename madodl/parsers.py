@@ -574,7 +574,7 @@ class ParseRequest(ParseCommon):
 
 class ParseQuery(HTMLParser):
     def __init__(self):
-        HTMLParser.__init__(self)
+        HTMLParser.__init__(self, convert_charrefs=True)
         self.lasttag   = None
         self.resultnum = None
         self.results   = []
@@ -611,7 +611,8 @@ class ParseQuery(HTMLParser):
             data = data.lstrip().rstrip()
 
             if data.startswith('Search'):
-                self.resultnum = int(data[-2])
+                # blahblah (nnn) <- grabs nnn
+                self.resultnum = int(data[data.rfind('(')+1:-1])
 
         if self.contb and not self.conte:
             if self.cont_td:
