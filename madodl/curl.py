@@ -110,6 +110,10 @@ def curl_progress(ttdl, tdl, ttul, tul):
     _g.conf._time = _time
 
     dlspeed = (tdl - _g.conf._lastdl) / tdiff
+    if ttdl:
+        tdlperc = int((tdl / ttdl) * 100)
+    else:
+        tdlperc = 0
 
     dls_conv = _util.conv_bytes(dlspeed) + '/s'
     tdl_conv = _util.conv_bytes(tdl)
@@ -122,8 +126,9 @@ def curl_progress(ttdl, tdl, ttul, tul):
     _g.conf._stdscr.addstr(2, 0, ' '*_g.conf._COLS)
     _g.conf._stdscr.refresh()
     _g.conf._stdscr.addstr(2, 0,
-        'size {} | downloaded {} | speed {}'.format(_g.conf._fsz, tdl_conv,
-                                                    dls_conv))
+        'size {} | downloaded {} ({}%) | speed {}'.format(_g.conf._fsz,
+                                                          tdl_conv, tdlperc,
+                                                          dls_conv))
     _g.conf._stdscr.refresh()
 
     _g.conf._lastdl = tdl
