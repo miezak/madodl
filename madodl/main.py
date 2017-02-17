@@ -489,7 +489,7 @@ def init_args():
         return f
 
     try:
-         _version = pkg_resources.get_distribution('madodl').version
+        _version = pkg_resources.get_distribution('madodl').version
     except pkg_resources.DistributionNotFound:
         _version = '(local)'
 
@@ -507,6 +507,8 @@ def init_args():
                              help='print verbose messages')
     args_parser.add_argument('-V', '--version', action='version',
                              version='madodl ' + _version)
+    args_parser.add_argument('-l', action='store_true', dest='lsfiles',
+                             help='list manga files')
     args_parser.add_argument('-m', nargs='+', action='append', dest='manga',
                              required=True,
                              metavar=('manga', 'volume(s) chapter(s)'),
@@ -521,7 +523,7 @@ def init_args():
                              metavar='outdir',
                              help='directory to save files to')
     args_parser.add_argument('-a', dest='auth', metavar='user:pw',
-                            help='madokami user and password')
+                             help='madokami user and password')
 
     args = args_parser.parse_args()
 
@@ -877,9 +879,14 @@ def get_listing(manga):
 
             _g.conf._found_in_cache = True
             _g.conf._cururl = 'https://{}{}{}/{}/{}/{}'.format(loc['DOMAIN'],
-                                            loc['MLOC'], d1, d2, d3, title)
+                                                               loc['MLOC'],
+                                                               d1, d2, d3,
+                                                               title)
 
-            _g.log.info('\n-----\n{}-----\n'.format(mdir))
+            # print the array in a semi-readable way
+            #_g.log.info('\n-----')
+            #print_cache_listing(mdir)
+            #_g.log.info('-----\n')
 
             path = '/'.join((path, title))
 
@@ -921,9 +928,12 @@ def get_listing(manga):
                         sel_no = False
 
                         while 1:
-                            confirm = input('Download `{}`? [yn] > '
-                                              .format(os.path.basename(
-                                                qp.mresults[ch-1][1])))
+                            confirm = input('{} `{}`? [yn] > '
+                                              .format('Download'             \
+                                                      if not _g.args.lsfiles \
+                                                      else   'Select',
+                                                      os.path.basename(
+                                                        qp.mresults[ch-1][1])))
                             if confirm.lower() in {'y', 'yes'}:
                                 break
                             elif confirm.lower() in {'n', 'no'}:
@@ -947,9 +957,20 @@ def get_listing(manga):
 
     dirls = search_exact(m, True).getvalue().decode()
 
-    _g.log.info('\n-----\n{}-----'.format(dirls))
+    if not _g.args.lsfiles:
+        _g.log.info('\n-----\n{}-----'.format(dirls))
 
     return (dirls, title, m)
+
+def print_cache_listing(dir):
+    for f in dir:
+        if f['type'] == 'file':
+            if _g.args.lsfiles:
+                print(f['name'])
+            else:
+                _g.log.info(f['name'])
+        else:
+            print_cache_listing(f['contents'])
 
 def subdir_recurse(listing, path, depth=1):
     # XXX add a knob for this
@@ -1027,6 +1048,12 @@ def main_loop(manga_list):
             else:
                 sout = sout.splitlines()
                 sout = rem_subdir_recurse(sout, path)
+
+            if _g.args.lsfiles:
+                print(title + '\n' + '='*len(title))
+                for m in sout:
+                    print(m.name)
+                continue
 
             compv, compc, allf, compfile = walk_thru_listing(req, title, sout)
 
@@ -1122,6 +1149,8 @@ def main():
     try:
         _g.conf = Struct()
         args    = init_args()
+        # cmdline args will need to be accessed globally on ocassion.
+        _g.args = args
 
         local_import()
         init_config()
