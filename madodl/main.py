@@ -1077,7 +1077,7 @@ def main_loop(manga_list):
                 # need to append MLOC when we get a cache hit.
                 ppfx = ''.join(['https://', loc['DOMAIN']])
 
-                if _g.conf._found_in_cache:
+                if _g.conf._usecache and _g.conf._found_in_cache:
                     ppfx = ''.join([ppfx, loc['MLOC']])
 
                 try:
